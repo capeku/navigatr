@@ -35,7 +35,20 @@ export interface RouteResult {
   maneuvers?: Maneuver[]
 }
 
+export interface AutocompleteResult {
+  lat: number
+  lng: number
+  displayName: string
+  name: string
+  city?: string
+  state?: string
+  country?: string
+  street?: string
+  postcode?: string
+}
+
 export interface NavigatrConfig {
   valhallaUrl?: string
   nominatimUrl?: string
+  photonUrl?: string
 }
