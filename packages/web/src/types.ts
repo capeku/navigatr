@@ -12,9 +12,21 @@ export interface MarkerOptions {
   label?: string
 }
 
+export interface DriverMarkerOptions {
+  lat: number
+  lng: number
+  heading?: number
+  icon?: 'car' | 'bike' | 'walk' | 'default'
+}
+
+export type LocationUpdateCallback = (location: LatLng) => void
+
 export interface NavigatrMap {
   addMarker(options: MarkerOptions): void
   drawRoute(polyline: LatLng[]): void
   fitRoute(polyline: LatLng[]): void
   clearRoute(): void
+  updateDriverMarker(options: DriverMarkerOptions): void
+  removeDriverMarker(): void
+  panTo(location: LatLng): void
 }

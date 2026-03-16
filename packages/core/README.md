@@ -32,6 +32,32 @@ console.log(route.distanceText) // "3.2 km"
 console.log(route.polyline)     // Array of { lat, lng } coordinates
 ```
 
+## Turn-by-Turn Directions
+
+```ts
+const route = await nav.route({
+  origin,
+  destination,
+  maneuvers: true
+})
+
+for (const step of route.maneuvers) {
+  console.log(step.instruction)    // "Turn left onto Oak Avenue"
+  console.log(step.distanceText)   // "200 m"
+  console.log(step.type)           // "left"
+}
+```
+
+## Traffic-Aware Routing
+
+```ts
+const route = await nav.route({
+  origin,
+  destination,
+  traffic: true  // Uses traffic data when available
+})
+```
+
 ## Configuration
 
 ```ts
@@ -45,9 +71,18 @@ const nav = new NavigatrCore({
 
 ### `NavigatrCore`
 
-#### `route({ origin, destination }): Promise<RouteResult>`
+#### `route(options): Promise<RouteResult>`
 
 Get driving directions between two points.
+
+```ts
+interface RouteOptions {
+  origin: LatLng
+  destination: LatLng
+  maneuvers?: boolean  // Include turn-by-turn directions
+  traffic?: boolean    // Use traffic-aware routing
+}
+```
 
 #### `geocode({ address }): Promise<GeocodeResult>`
 
@@ -71,12 +106,23 @@ interface GeocodeResult {
   displayName: string
 }
 
+interface Maneuver {
+  instruction: string
+  type: string
+  distanceMeters: number
+  distanceText: string
+  durationSeconds: number
+  durationText: string
+  startPoint: LatLng
+}
+
 interface RouteResult {
   durationSeconds: number
   durationText: string
   distanceMeters: number
   distanceText: string
   polyline: LatLng[]
+  maneuvers?: Maneuver[]
 }
 ```
 

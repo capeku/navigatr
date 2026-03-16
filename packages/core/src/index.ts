@@ -1,4 +1,4 @@
-import type { LatLng, GeocodeResult, RouteResult, NavigatrConfig } from './types'
+import type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig } from './types'
 import { getRoute } from './route'
 import { geocode as geocodeAddress, reverseGeocode as reverseGeocodeCoords } from './geocode'
 
@@ -11,8 +11,8 @@ export class NavigatrCore {
     this.nominatimUrl = config?.nominatimUrl ?? 'https://nominatim.openstreetmap.org'
   }
 
-  async route(params: { origin: LatLng; destination: LatLng }): Promise<RouteResult> {
-    return getRoute(params.origin, params.destination, this.valhallaUrl)
+  async route(params: RouteOptions): Promise<RouteResult> {
+    return getRoute(params, this.valhallaUrl)
   }
 
   async geocode(params: { address: string }): Promise<GeocodeResult> {
@@ -24,4 +24,4 @@ export class NavigatrCore {
   }
 }
 
-export type { LatLng, GeocodeResult, RouteResult, NavigatrConfig }
+export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig }
