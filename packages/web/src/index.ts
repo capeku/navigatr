@@ -1,6 +1,8 @@
 import { NavigatrCore } from '@navigatr/core'
 import type { LatLng, NavigatrConfig, RouteResult } from '@navigatr/core'
 import { createMap } from './map'
+import { RideSession } from './ride'
+import type { RideConfig } from './ride'
 import type { MapConfig, NavigatrMap, LocationUpdateCallback } from './types'
 
 export class Navigatr extends NavigatrCore {
@@ -11,8 +13,50 @@ export class Navigatr extends NavigatrCore {
     super(config)
   }
 
+  /**
+   * Create a Leaflet map in the specified container.
+   */
   map(params: MapConfig): NavigatrMap {
     return createMap(params)
+  }
+
+  /**
+   * Create a new ride session for managing ride-sharing trips.
+   *
+   * RideSession handles the full lifecycle:
+   * - Route calculation for pickup and destination phases
+   * - Real-time driver tracking with ETA updates
+   * - Automatic map rendering (if map is provided)
+   *
+   * @example
+   * ```ts
+   * // Rider requests a ride
+   * const destination = await nav.geocode({ address: 'Airport' })
+   *
+   * const ride = nav.createRide({
+   *   pickup: riderGPSLocation,    // From device GPS
+   *   destination,                  // Geocoded once
+   *   map,                          // Optional: auto-render
+   *   onETAUpdate: (eta, phase) => {
+   *     ui.showETA(eta.durationText)
+   *   }
+   * })
+   *
+   * // Driver accepts - start tracking
+   * await ride.startPickup(driverLocation)
+   *
+   * // Connect real-time updates
+   * websocket.on('driver-moved', (pos) => ride.updateDriverLocation(pos))
+   *
+   * // Driver arrives - start trip
+   * await ride.startTrip()
+   *
+   * // Arrived at destination
+   * ride.complete()
+   * ```
+   */
+  createRide(config: RideConfig): RideSession {
+    return new RideSession(this, config)
   }
 
   /**
@@ -20,19 +64,23 @@ export class Navigatr extends NavigatrCore {
    * Connect this to your real-time backend (Firebase, Supabase, Socket.io, etc.)
    *
    * @example
-   * // With Firebase Realtime Database
+   * ```ts
    * const unsubscribe = nav.onLocationUpdate((location) => {
    *   map.updateDriverMarker({ ...location, icon: 'car' })
    * })
    *
+   * // Connect to your backend
    * firebase.database().ref(`rides/${rideId}/driverLocation`).on('value', (snap) => {
    *   nav.pushLocationUpdate(snap.val())
    * })
+   *
+   * // Cleanup
+   * unsubscribe()
+   * ```
    */
   onLocationUpdate(callback: LocationUpdateCallback): () => void {
     this.locationCallbacks.push(callback)
 
-    // Return unsubscribe function
     return () => {
       const index = this.locationCallbacks.indexOf(callback)
       if (index > -1) {
@@ -60,16 +108,16 @@ export class Navigatr extends NavigatrCore {
   }
 
   /**
-   * Recalculate ETA from current driver position to destination.
-   * Returns updated route with new duration/distance.
+   * Recalculate ETA from current position to destination.
+   * Use this for simple real-time updates without RideSession.
    *
    * @example
+   * ```ts
    * nav.onLocationUpdate(async (driverPos) => {
    *   const updated = await nav.recalculateETA(driverPos, destination)
    *   etaDisplay.textContent = updated.durationText
-   *   map.clearRoute()
-   *   map.drawRoute(updated.polyline)
    * })
+   * ```
    */
   async recalculateETA(
     currentLocation: LatLng,
@@ -84,5 +132,7 @@ export class Navigatr extends NavigatrCore {
   }
 }
 
+export { RideSession } from './ride'
+export type { RideConfig, RidePhase } from './ride'
 export type { NavigatrMap, MapConfig, DriverMarkerOptions, LocationUpdateCallback } from './types'
 export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig } from '@navigatr/core'

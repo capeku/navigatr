@@ -2,7 +2,15 @@
 
 The open source Google Maps alternative. Zero API keys. Zero cost.
 
-Navigatr is a monorepo containing a maps SDK and demo application that provides routing, geocoding, and map rendering using free, public APIs (Valhalla and Nominatim).
+Navigatr is a maps SDK that provides routing, geocoding, and map rendering using free, public APIs. Build ride-sharing apps, delivery trackers, or any location-based service without paying for Google Maps.
+
+## Features
+
+- **Routing** - Turn-by-turn directions with ETA and distance
+- **Geocoding** - Convert addresses to coordinates and vice versa
+- **Map Rendering** - Leaflet-based maps with route visualization
+- **Real-Time Tracking** - Built-in helpers for ride-sharing apps
+- **Zero Cost** - Uses public OpenStreetMap infrastructure
 
 ## Packages
 
@@ -10,94 +18,122 @@ Navigatr is a monorepo containing a maps SDK and demo application that provides 
 |---------|-------------|
 | [@navigatr/core](./packages/core) | Pure TypeScript SDK for routing and geocoding |
 | [@navigatr/web](./packages/web) | Browser SDK with Leaflet map rendering |
-| [@navigatr/demo](./apps/web) | Nuxt landing page and live demo |
 
 ## Quick Start
-
-```bash
-git clone https://github.com/user/navigatr
-cd navigatr
-pnpm install
-pnpm dev        # starts Nuxt demo at localhost:3000
-```
-
-## Usage
-
-Install the web SDK in your project:
 
 ```bash
 npm install @navigatr/web leaflet
 ```
 
-Add Leaflet CSS to your HTML:
-
 ```html
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<div id="map" style="height: 400px"></div>
 ```
-
-Use it in your code:
 
 ```ts
 import { Navigatr } from '@navigatr/web'
 
 const nav = new Navigatr()
-
-// Render map
 const map = nav.map({ container: 'map', center: { lat: 5.6037, lng: -0.1870 } })
 
-// Geocode both addresses
+// Geocode addresses
 const origin = await nav.geocode({ address: 'Accra Mall, Ghana' })
 const destination = await nav.geocode({ address: 'Kotoka Airport, Ghana' })
 
-// Get route and draw it
-const result = await nav.route({ origin, destination })
-map.addMarker({ ...origin, label: 'Origin' })
-map.addMarker({ ...destination, label: 'Destination' })
-map.drawRoute(result.polyline)
-map.fitRoute(result.polyline)
-
-console.log(result.durationText)   // "12 mins"
-console.log(result.distanceText)   // "3.2 km"
-```
-
-## Core SDK Only
-
-If you don't need map rendering, use the core package:
-
-```bash
-npm install @navigatr/core
-```
-
-```ts
-import { NavigatrCore } from '@navigatr/core'
-
-const nav = new NavigatrCore()
-
-const origin = await nav.geocode({ address: 'Accra Mall, Ghana' })
-const destination = await nav.geocode({ address: 'Kotoka Airport, Ghana' })
+// Get route and display
 const route = await nav.route({ origin, destination })
+map.drawRoute(route.polyline)
+map.fitRoute(route.polyline)
 
 console.log(route.durationText) // "12 mins"
 console.log(route.distanceText) // "3.2 km"
 ```
 
+## Documentation
+
+- [Basic Usage](./docs/basic-usage.md) - Getting started with routing and geocoding
+- [Building Ride-Sharing Apps](./docs/ride-sharing.md) - Real-time tracking, ETA updates, driver/rider views
+- [API Reference](./docs/api-reference.md) - Complete API documentation
+
+## For Ride-Sharing Apps
+
+Navigatr includes built-in helpers for ride-sharing applications:
+
+```ts
+import { Navigatr } from '@navigatr/web'
+
+const nav = new Navigatr()
+const map = nav.map({ container: 'map', center: riderLocation })
+
+// 1. Geocode destination once when ride is requested
+const destination = await nav.geocode({ address: 'Airport' })
+
+// 2. Create a ride session
+const ride = nav.createRide({
+  pickup: riderGPSLocation,
+  destination,
+  map,
+  onETAUpdate: (eta, phase) => {
+    showETA(eta.durationText)
+  }
+})
+
+// 3. Start tracking when driver accepts
+await ride.startPickup(driverLocation)
+
+// 4. Connect to your real-time backend
+websocket.on('driver-location', (pos) => {
+  ride.updateDriverLocation(pos)
+})
+
+// 5. Transition phases
+await ride.startTrip()  // Driver picked up rider
+ride.complete()          // Arrived at destination
+```
+
+See the [Ride-Sharing Guide](./docs/ride-sharing.md) for complete examples.
+
+## Rate Limits
+
+Navigatr uses public APIs with usage limits:
+
+| Service | Limit | Notes |
+|---------|-------|-------|
+| Nominatim (geocoding) | 1 req/sec | Cache results, geocode once per ride |
+| Valhalla (routing) | Generous | No issues with real-time updates |
+
+**Best Practice:** Geocode addresses once (when ride is requested), then use coordinates for all subsequent route calculations.
+
 ## APIs Used
 
-- **Routing**: [Valhalla](https://valhalla.github.io/valhalla/) public instance at `valhalla1.openstreetmap.de`
+- **Routing**: [Valhalla](https://valhalla.github.io/valhalla/) at `valhalla1.openstreetmap.de`
 - **Geocoding**: [Nominatim](https://nominatim.org/) at `nominatim.openstreetmap.org`
 - **Map Tiles**: [OpenStreetMap](https://www.openstreetmap.org/)
+
+## Self-Hosting
+
+For production apps with high traffic, consider self-hosting:
+
+- [Valhalla Docker](https://github.com/gis-ops/docker-valhalla)
+- [Nominatim Docker](https://github.com/mediagis/nominatim-docker)
+
+Then configure Navigatr to use your instances:
+
+```ts
+const nav = new Navigatr({
+  valhallaUrl: 'https://your-valhalla.example.com',
+  nominatimUrl: 'https://your-nominatim.example.com'
+})
+```
 
 ## Development
 
 ```bash
-# Install dependencies
+git clone https://github.com/capeku/navigatr
+cd navigatr
 pnpm install
-
-# Build all packages
-pnpm build
-
-# Start the demo app
-pnpm dev
+pnpm dev        # starts demo at localhost:3000
+pnpm build      # build all packages
 ```
 
 ## License

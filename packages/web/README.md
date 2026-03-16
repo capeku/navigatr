@@ -24,7 +24,7 @@ const nav = new Navigatr()
 // Render map
 const map = nav.map({ container: 'map', center: { lat: 5.6037, lng: -0.1870 } })
 
-// Geocode both addresses
+// Geocode addresses
 const origin = await nav.geocode({ address: 'Accra Mall, Ghana' })
 const destination = await nav.geocode({ address: 'Kotoka Airport, Ghana' })
 
@@ -39,6 +39,42 @@ console.log(result.durationText) // "12 mins"
 console.log(result.distanceText) // "3.2 km"
 ```
 
+## Ride-Sharing Apps
+
+Use `RideSession` for complete ride lifecycle management:
+
+```ts
+import { Navigatr } from '@navigatr/web'
+
+const nav = new Navigatr()
+const map = nav.map({ container: 'map', center: riderLocation })
+
+// 1. Geocode destination once when ride is requested
+const destination = await nav.geocode({ address: 'Airport' })
+
+// 2. Create ride session
+const ride = nav.createRide({
+  pickup: riderGPSLocation,
+  destination,
+  map,
+  onETAUpdate: (eta, phase) => {
+    showETA(eta.durationText)
+  }
+})
+
+// 3. Start tracking when driver accepts
+await ride.startPickup(driverLocation)
+
+// 4. Connect real-time updates (your backend)
+websocket.on('driver-location', (pos) => {
+  ride.updateDriverLocation(pos)
+})
+
+// 5. Phase transitions
+await ride.startTrip()  // Driver picked up rider
+ride.complete()          // Arrived
+```
+
 ## Turn-by-Turn Directions
 
 ```ts
@@ -50,103 +86,75 @@ const route = await nav.route({
 
 route.maneuvers.forEach(step => {
   console.log(step.instruction) // "Turn left onto Main Street"
+  console.log(step.type)        // "left"
 })
 ```
 
-## Real-Time Driver Tracking
+## Real-Time Tracking (Manual)
 
-For ride-sharing apps, use the real-time helpers with your own backend (Firebase, Supabase, Socket.io, etc.):
+For custom real-time implementations:
 
 ```ts
-import { Navigatr } from '@navigatr/web'
-
-const nav = new Navigatr()
-const map = nav.map({ container: 'map', center: riderLocation })
-
 // Register callback for location updates
-nav.onLocationUpdate((driverPos) => {
-  // Update driver marker on map
-  map.updateDriverMarker({ ...driverPos, icon: 'car' })
-})
-
-// Connect to your real-time backend
-firebase.database().ref(`rides/${rideId}/driverLocation`).on('value', (snap) => {
-  nav.pushLocationUpdate(snap.val())
-})
-
-// Recalculate ETA when driver moves
 nav.onLocationUpdate(async (driverPos) => {
+  map.updateDriverMarker({ ...driverPos, icon: 'car' })
+
   const updated = await nav.recalculateETA(driverPos, destination)
   etaDisplay.textContent = updated.durationText
 
-  // Update route line
   map.clearRoute()
   map.drawRoute(updated.polyline)
 })
-```
 
-### Driver Icons
-
-```ts
-// Built-in icons: 'car', 'bike', 'walk', 'default'
-map.updateDriverMarker({ lat, lng, icon: 'car', heading: 45 })
+// Connect to your backend
+firebase.database().ref(`rides/${rideId}/driverLocation`).on('value', (snap) => {
+  nav.pushLocationUpdate(snap.val())
+})
 ```
 
 ## API
 
-### `Navigatr`
+### Navigatr
 
-Extends `NavigatrCore` with map rendering and real-time capabilities.
+| Method | Description |
+|--------|-------------|
+| `map(config)` | Create a Leaflet map |
+| `geocode({ address })` | Convert address to coordinates |
+| `reverseGeocode({ lat, lng })` | Convert coordinates to address |
+| `route(options)` | Calculate route between points |
+| `createRide(config)` | Create ride session for ride-sharing |
+| `onLocationUpdate(callback)` | Register location update callback |
+| `pushLocationUpdate(location)` | Push driver location to callbacks |
+| `recalculateETA(current, dest)` | Recalculate route from position |
 
-#### `map({ container, center, zoom? }): NavigatrMap`
+### NavigatrMap
 
-Creates a Leaflet map in the specified container element.
+| Method | Description |
+|--------|-------------|
+| `addMarker({ lat, lng, label? })` | Add marker with optional popup |
+| `drawRoute(polyline)` | Draw route line (#00FF94) |
+| `fitRoute(polyline)` | Fit map to show route |
+| `clearRoute()` | Remove route from map |
+| `updateDriverMarker(options)` | Add/update driver marker |
+| `removeDriverMarker()` | Remove driver marker |
+| `panTo(location)` | Pan map to location |
 
-#### `onLocationUpdate(callback): () => void`
+### RideSession
 
-Register a callback for driver location updates. Returns an unsubscribe function.
+| Method | Description |
+|--------|-------------|
+| `startPickup(driverLocation)` | Start pickup phase |
+| `startTrip()` | Start trip phase |
+| `complete()` | Mark ride complete |
+| `updateDriverLocation(pos)` | Update driver position |
+| `getPhase()` | Get current phase |
+| `getCurrentRoute()` | Get last calculated route |
 
-#### `pushLocationUpdate(location: LatLng): void`
+## Documentation
 
-Push a new driver location (call this from your real-time backend listener).
-
-#### `recalculateETA(currentLocation, destination, options?): Promise<RouteResult>`
-
-Recalculate route and ETA from current position.
-
-#### `getLastDriverLocation(): LatLng | null`
-
-Get the last known driver location.
-
-### `NavigatrMap`
-
-#### `addMarker({ lat, lng, label? })`
-
-Adds a marker with optional popup label.
-
-#### `drawRoute(polyline: LatLng[])`
-
-Draws a route polyline (#00FF94).
-
-#### `fitRoute(polyline: LatLng[])`
-
-Adjusts bounds to show the full route.
-
-#### `clearRoute()`
-
-Removes the current route.
-
-#### `updateDriverMarker({ lat, lng, icon?, heading? })`
-
-Add or update the driver marker position.
-
-#### `removeDriverMarker()`
-
-Remove the driver marker.
-
-#### `panTo(location: LatLng)`
-
-Pan the map to a location.
+- [Basic Usage](../../docs/basic-usage.md)
+- [Ride-Sharing Guide](../../docs/ride-sharing.md)
+- [API Reference](../../docs/api-reference.md)
 
 ## License
 
