@@ -52,3 +52,61 @@ export interface NavigatrConfig {
   nominatimUrl?: string
   photonUrl?: string
 }
+
+// Map Customization Types
+export type MapTheme = 'light' | 'dark' | 'satellite' | 'terrain' | 'custom'
+
+export interface MapColors {
+  primary?: string
+  secondary?: string
+  background?: string
+  roads?: string
+  water?: string
+  parks?: string
+  buildings?: string
+  labels?: string
+}
+
+export interface LayerVisibility {
+  roads?: boolean
+  labels?: boolean
+  buildings?: boolean
+  water?: boolean
+  parks?: boolean
+  terrain?: boolean
+  traffic?: boolean
+  transit?: boolean
+}
+
+export interface MarkerStyle {
+  iconUrl?: string
+  iconSize?: [number, number]
+  iconAnchor?: [number, number]
+  color?: string
+  scale?: number
+}
+
+export interface PolylineStyle {
+  color?: string
+  weight?: number
+  opacity?: number
+  dashArray?: string
+  lineCap?: 'butt' | 'round' | 'square'
+  lineJoin?: 'miter' | 'round' | 'bevel'
+}
+
+export interface MapStyle {
+  id?: string
+  name?: string
+  theme?: MapTheme
+  colors?: MapColors
+  layers?: LayerVisibility
+  markers?: MarkerStyle
+  polyline?: PolylineStyle
+}
+
+export interface MapStylePreset {
+  id: string
+  name: string
+  style: MapStyle
+}

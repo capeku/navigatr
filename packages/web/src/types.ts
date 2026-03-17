@@ -21,6 +21,12 @@ export interface DriverMarkerOptions {
   icon?: 'car' | 'bike' | 'walk' | 'default'
 }
 
+export interface RouteStyleOptions {
+  color?: string
+  weight?: number
+  opacity?: number
+}
+
 export type LocationUpdateCallback = (location: LatLng) => void
 
 export interface NavigatrMarker {
@@ -30,7 +36,7 @@ export interface NavigatrMarker {
 
 export interface NavigatrMap {
   addMarker(options: MarkerOptions): NavigatrMarker
-  drawRoute(polyline: LatLng[]): void
+  drawRoute(polyline: LatLng[], style?: RouteStyleOptions): void
   fitRoute(polyline: LatLng[]): void
   clearRoute(): void
   updateDriverMarker(options: DriverMarkerOptions): void

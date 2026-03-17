@@ -10,7 +10,34 @@ interface AutocompleteResult {
   country?: string
 }
 
-type TabId = 'route' | 'tracking'
+type TabId = 'route' | 'tracking' | 'styling'
+
+interface MapStyle {
+  theme: string
+  colors: {
+    primary: string
+    water: string
+    parks: string
+    roads: string
+    buildings: string
+  }
+  layers: {
+    roads: boolean
+    labels: boolean
+    buildings: boolean
+    water: boolean
+    parks: boolean
+    traffic: boolean
+  }
+  polyline: {
+    color: string
+    weight: number
+    opacity: number
+  }
+  markers: {
+    color: string
+  }
+}
 
 // Countries with ISO 3166-1 alpha-2 codes
 const countries = [
@@ -29,6 +56,45 @@ const activeTab = ref<TabId>('route')
 const consoleOutput = ref<string[]>([])
 const isRunning = ref(false)
 const selectedCountry = ref('')
+const codeCopied = ref(false)
+const bottomPanelTab = ref<'console' | 'code'>('console')
+
+// Style presets
+const stylePresets = [
+  { id: 'default', name: 'Default' },
+  { id: 'dark', name: 'Dark Mode' },
+  { id: 'satellite', name: 'Satellite' },
+  { id: 'navigation', name: 'Navigation' },
+  { id: 'minimal', name: 'Minimal' }
+]
+
+// Map styling state
+const mapStyle = ref<MapStyle>({
+  theme: 'default',
+  colors: {
+    primary: '#3b82f6',
+    water: '#0ea5e9',
+    parks: '#22c55e',
+    roads: '#94a3b8',
+    buildings: '#cbd5e1'
+  },
+  layers: {
+    roads: true,
+    labels: true,
+    buildings: true,
+    water: true,
+    parks: true,
+    traffic: false
+  },
+  polyline: {
+    color: '#3b82f6',
+    weight: 5,
+    opacity: 0.8
+  },
+  markers: {
+    color: '#3b82f6'
+  }
+})
 
 // Route tab state
 const routeOriginInput = ref('')
@@ -65,6 +131,133 @@ function log(message: string, type: 'info' | 'success' | 'error' = 'info') {
 function clearConsole() {
   consoleOutput.value = []
 }
+
+function applyPreset(presetId: string) {
+  const presets: Record<string, Partial<MapStyle>> = {
+    default: {
+      theme: 'default',
+      colors: { primary: '#3b82f6', water: '#0ea5e9', parks: '#22c55e', roads: '#94a3b8', buildings: '#cbd5e1' },
+      polyline: { color: '#3b82f6', weight: 5, opacity: 0.8 },
+      markers: { color: '#3b82f6' }
+    },
+    dark: {
+      theme: 'dark',
+      colors: { primary: '#60a5fa', water: '#0369a1', parks: '#166534', roads: '#475569', buildings: '#334155' },
+      polyline: { color: '#60a5fa', weight: 5, opacity: 0.8 },
+      markers: { color: '#60a5fa' }
+    },
+    satellite: {
+      theme: 'satellite',
+      colors: { primary: '#fbbf24', water: '#0ea5e9', parks: '#22c55e', roads: '#94a3b8', buildings: '#cbd5e1' },
+      polyline: { color: '#fbbf24', weight: 4, opacity: 0.9 },
+      markers: { color: '#fbbf24' }
+    },
+    navigation: {
+      theme: 'navigation',
+      colors: { primary: '#2563eb', water: '#38bdf8', parks: '#4ade80', roads: '#64748b', buildings: '#e2e8f0' },
+      polyline: { color: '#2563eb', weight: 6, opacity: 0.9 },
+      markers: { color: '#2563eb' }
+    },
+    minimal: {
+      theme: 'minimal',
+      colors: { primary: '#000000', water: '#e0f2fe', parks: '#ecfdf5', roads: '#d4d4d4', buildings: '#f5f5f5' },
+      polyline: { color: '#000000', weight: 3, opacity: 1 },
+      markers: { color: '#000000' }
+    }
+  }
+
+  const preset = presets[presetId]
+  if (preset) {
+    mapStyle.value = { ...mapStyle.value, ...preset } as MapStyle
+    log(`Selected "${presetId}" style preset`, 'info')
+  }
+}
+
+// CSS filter presets for map themes
+const mapFilters: Record<string, string> = {
+  default: 'none',
+  dark: 'invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)',
+  satellite: 'saturate(120%) contrast(110%)',
+  navigation: 'saturate(110%) brightness(105%)',
+  minimal: 'grayscale(100%) brightness(110%) contrast(90%)'
+}
+
+const currentMapFilter = ref('none')
+
+function applyStyleToMap() {
+  log(`nav.setStyleFromPreset('${mapStyle.value.theme}', { ... })`)
+  log(`Style configuration applied:`, 'success')
+  log(`  Theme: ${mapStyle.value.theme}`)
+  log(`  Primary: ${mapStyle.value.colors.primary}`)
+  log(`  Polyline: ${mapStyle.value.polyline.color}, ${mapStyle.value.polyline.weight}px, ${mapStyle.value.polyline.opacity} opacity`)
+
+  // Apply CSS filter to map based on theme
+  currentMapFilter.value = mapFilters[mapStyle.value.theme] || 'none'
+  log(`  Map filter applied: ${mapStyle.value.theme}`)
+
+  if (map && polyline.value.length > 0) {
+    map.clearRoute()
+    map.drawRoute(polyline.value, {
+      color: mapStyle.value.polyline.color,
+      weight: mapStyle.value.polyline.weight,
+      opacity: mapStyle.value.polyline.opacity
+    })
+    log(`  Route redrawn with new style`)
+  }
+
+  log(`CSS variables generated for your app`)
+}
+
+const generatedCode = computed(() => {
+  const style = mapStyle.value
+  return `import { NavigatrCore } from '@navigatr/core'
+
+const nav = new NavigatrCore()
+
+// Apply style preset
+nav.setStyleFromPreset('${style.theme}', {
+  colors: {
+    primary: '${style.colors.primary}',
+    water: '${style.colors.water}',
+    parks: '${style.colors.parks}',
+    roads: '${style.colors.roads}',
+    buildings: '${style.colors.buildings}'
+  },
+  polyline: {
+    color: '${style.polyline.color}',
+    weight: ${style.polyline.weight},
+    opacity: ${style.polyline.opacity}
+  },
+  markers: {
+    color: '${style.markers.color}'
+  },
+  layers: {
+    roads: ${style.layers.roads},
+    labels: ${style.layers.labels},
+    buildings: ${style.layers.buildings},
+    traffic: ${style.layers.traffic}
+  }
+})
+
+// Get current style
+const currentStyle = nav.getStyle()
+
+// Get as CSS variables
+const cssVars = nav.getStyleAsCSSVariables('map')
+// { '--map-primary': '${style.colors.primary}', ... }`
+})
+
+async function copyCode() {
+  try {
+    await navigator.clipboard.writeText(generatedCode.value)
+    codeCopied.value = true
+    log('Code copied to clipboard', 'success')
+    setTimeout(() => { codeCopied.value = false }, 2000)
+  } catch {
+    log('Failed to copy code', 'error')
+  }
+}
+
 
 function clearMap() {
   if (originMarker) { originMarker.remove(); originMarker = null }
@@ -198,7 +391,11 @@ async function calculateRoute() {
 
     if (map) {
       map.clearRoute()
-      map.drawRoute(decoded)
+      map.drawRoute(decoded, {
+        color: mapStyle.value.polyline.color,
+        weight: mapStyle.value.polyline.weight,
+        opacity: mapStyle.value.polyline.opacity
+      })
       map.fitRoute(decoded)
     }
   } catch (e) {
@@ -418,6 +615,13 @@ onUnmounted(() => {
           >
             Live Tracking
           </button>
+          <button
+            class="tab"
+            :class="{ active: activeTab === 'styling' }"
+            @click="activeTab = 'styling'"
+          >
+            Styling
+          </button>
         </div>
 
         <div class="editor-content">
@@ -554,20 +758,176 @@ onUnmounted(() => {
               </div>
             </template>
           </div>
+
+          <!-- Styling Tab -->
+          <div v-if="activeTab === 'styling'" class="tab-content">
+            <div class="method-signature">
+              <span class="method-name">nav.setStyleFromPreset</span>
+              <span class="method-params">(presetId, options?)</span>
+            </div>
+            <p class="method-desc">Customize map appearance with presets, colors, and layer visibility.</p>
+
+            <!-- Preset Selection -->
+            <div class="input-group">
+              <label>preset</label>
+              <div class="preset-grid">
+                <button
+                  v-for="preset in stylePresets"
+                  :key="preset.id"
+                  class="preset-btn"
+                  :class="{ active: mapStyle.theme === preset.id }"
+                  @click="applyPreset(preset.id)"
+                >
+                  {{ preset.name }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Colors Section -->
+            <div class="style-section">
+              <div class="section-header">
+                <span class="section-title">Colors</span>
+              </div>
+              <div class="color-grid">
+                <div class="color-input">
+                  <label>primary</label>
+                  <div class="color-picker-wrapper">
+                    <input type="color" v-model="mapStyle.colors.primary" />
+                    <span class="color-value">{{ mapStyle.colors.primary }}</span>
+                  </div>
+                </div>
+                <div class="color-input">
+                  <label>water</label>
+                  <div class="color-picker-wrapper">
+                    <input type="color" v-model="mapStyle.colors.water" />
+                    <span class="color-value">{{ mapStyle.colors.water }}</span>
+                  </div>
+                </div>
+                <div class="color-input">
+                  <label>parks</label>
+                  <div class="color-picker-wrapper">
+                    <input type="color" v-model="mapStyle.colors.parks" />
+                    <span class="color-value">{{ mapStyle.colors.parks }}</span>
+                  </div>
+                </div>
+                <div class="color-input">
+                  <label>roads</label>
+                  <div class="color-picker-wrapper">
+                    <input type="color" v-model="mapStyle.colors.roads" />
+                    <span class="color-value">{{ mapStyle.colors.roads }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Polyline Style -->
+            <div class="style-section">
+              <div class="section-header">
+                <span class="section-title">Route Polyline</span>
+              </div>
+              <!-- Live Preview -->
+              <div class="polyline-preview">
+                <div
+                  class="polyline-preview-line"
+                  :style="{
+                    backgroundColor: mapStyle.polyline.color,
+                    height: mapStyle.polyline.weight + 'px',
+                    opacity: mapStyle.polyline.opacity
+                  }"
+                ></div>
+                <span class="preview-label">Preview</span>
+              </div>
+              <div class="polyline-controls">
+                <div class="color-input">
+                  <label>color</label>
+                  <div class="color-picker-wrapper">
+                    <input type="color" v-model="mapStyle.polyline.color" />
+                    <span class="color-value">{{ mapStyle.polyline.color }}</span>
+                  </div>
+                </div>
+                <div class="slider-input">
+                  <label>weight: {{ mapStyle.polyline.weight }}px</label>
+                  <input type="range" v-model.number="mapStyle.polyline.weight" min="1" max="12" step="1" />
+                </div>
+                <div class="slider-input">
+                  <label>opacity: {{ mapStyle.polyline.opacity }}</label>
+                  <input type="range" v-model.number="mapStyle.polyline.opacity" min="0.1" max="1" step="0.1" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Layer Visibility -->
+            <div class="style-section">
+              <div class="section-header">
+                <span class="section-title">Layer Visibility</span>
+              </div>
+              <div class="layer-toggles">
+                <label class="toggle-row">
+                  <input type="checkbox" v-model="mapStyle.layers.roads" />
+                  <span>Roads</span>
+                </label>
+                <label class="toggle-row">
+                  <input type="checkbox" v-model="mapStyle.layers.labels" />
+                  <span>Labels</span>
+                </label>
+                <label class="toggle-row">
+                  <input type="checkbox" v-model="mapStyle.layers.buildings" />
+                  <span>Buildings</span>
+                </label>
+                <label class="toggle-row">
+                  <input type="checkbox" v-model="mapStyle.layers.traffic" />
+                  <span>Traffic</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Apply Style Button -->
+            <button class="apply-style-btn" @click="applyStyleToMap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              </svg>
+              Apply Style
+            </button>
+          </div>
         </div>
 
         <div class="console-panel">
           <div class="console-header">
-            <span>Console</span>
-            <button class="console-clear" @click="clearConsole">Clear</button>
+            <div class="console-tabs">
+              <button
+                class="console-tab"
+                :class="{ active: bottomPanelTab === 'console' }"
+                @click="bottomPanelTab = 'console'"
+              >
+                Console
+              </button>
+              <button
+                class="console-tab"
+                :class="{ active: bottomPanelTab === 'code' }"
+                @click="bottomPanelTab = 'code'"
+              >
+                Code
+              </button>
+            </div>
+            <div class="console-actions">
+              <button v-if="bottomPanelTab === 'console'" class="console-clear" @click="clearConsole">Clear</button>
+              <button v-if="bottomPanelTab === 'code'" class="console-clear" @click="copyCode">
+                {{ codeCopied ? 'Copied!' : 'Copy' }}
+              </button>
+            </div>
           </div>
-          <div class="console-output">
+          <!-- Console Output -->
+          <div v-if="bottomPanelTab === 'console'" class="console-output">
             <div v-for="(line, index) in consoleOutput" :key="index" class="console-line">
               {{ line }}
             </div>
             <div v-if="consoleOutput.length === 0" class="console-empty">
               Output will appear here...
             </div>
+          </div>
+          <!-- Code Preview -->
+          <div v-if="bottomPanelTab === 'code'" class="console-output code-output">
+            <pre class="code-preview"><code>{{ generatedCode }}</code></pre>
           </div>
         </div>
       </div>
@@ -583,7 +943,7 @@ onUnmounted(() => {
         <div class="preview-content">
           <PhoneMockup>
             <div class="map-screen">
-              <div id="sandbox-map" class="map-container"></div>
+              <div id="sandbox-map" class="map-container" :style="{ filter: currentMapFilter }"></div>
             </div>
           </PhoneMockup>
         </div>
@@ -1089,6 +1449,320 @@ onUnmounted(() => {
   position: absolute;
   top: 0;
   left: 0;
+  transition: filter 0.3s ease;
+}
+
+/* Styling Tab */
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.preset-btn {
+  padding: 10px 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preset-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.preset-btn.active {
+  background: rgba(0, 255, 148, 0.1);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.style-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.color-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.color-input label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.color-picker-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-picker-wrapper input[type="color"] {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.color-picker-wrapper input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-picker-wrapper input[type="color"]::-webkit-color-swatch {
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.color-value {
+  font-size: 11px;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--text-muted);
+}
+
+.polyline-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg);
+  border-radius: 6px;
+}
+
+.polyline-preview-line {
+  flex: 1;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.preview-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.polyline-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.slider-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slider-input label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.slider-input input[type="range"] {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  appearance: none;
+  cursor: pointer;
+}
+
+.slider-input input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.layer-toggles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  transition: background 0.2s;
+}
+
+.toggle-row:hover {
+  background: rgba(0, 255, 148, 0.05);
+}
+
+.toggle-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.apply-style-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 20px;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #000;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.apply-style-btn:hover {
+  opacity: 0.9;
+}
+
+.console-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.console-tab {
+  padding: 4px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.console-tab:hover {
+  color: var(--text);
+}
+
+.console-tab.active {
+  background: rgba(0, 255, 148, 0.15);
+  color: var(--accent);
+}
+
+.console-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.code-output {
+  padding: 0;
+}
+
+.code-output .code-preview {
+  margin: 0;
+  padding: 12px 16px;
+  background: transparent;
+  max-height: none;
+  height: 100%;
+}
+
+.code-section {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.code-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.copy-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.code-preview {
+  margin: 0;
+  padding: 16px;
+  background: #0a0a0f;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  overflow-x: auto;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.code-preview code {
+  color: var(--text);
 }
 
 @media (max-width: 1000px) {
@@ -1104,6 +1778,18 @@ onUnmounted(() => {
 
   .preview-panel {
     height: 500px;
+  }
+
+  .preset-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .color-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .layer-toggles {
+    grid-template-columns: 1fr;
   }
 }
 </style>
