@@ -11,12 +11,12 @@ interface AutocompleteResult {
 const props = defineProps<{
   modelValue: string
   placeholder?: string
+  countryCode?: string
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'select': [result: AutocompleteResult]
-  'search': []
 }>()
 
 const inputValue = ref(props.modelValue)
@@ -24,6 +24,7 @@ const suggestions = ref<AutocompleteResult[]>([])
 const isOpen = ref(false)
 const isLoading = ref(false)
 const activeIndex = ref(-1)
+const isSelecting = ref(false)
 
 let debounceTimer: ReturnType<typeof setTimeout>
 
@@ -35,6 +36,12 @@ watch(inputValue, (val) => {
   emit('update:modelValue', val)
   clearTimeout(debounceTimer)
 
+  // Don't search when selecting a suggestion
+  if (isSelecting.value) {
+    isSelecting.value = false
+    return
+  }
+
   if (val.length < 2) {
     suggestions.value = []
     isOpen.value = false
@@ -44,7 +51,11 @@ watch(inputValue, (val) => {
   debounceTimer = setTimeout(async () => {
     isLoading.value = true
     try {
-      const res = await fetch(`/api/autocomplete?q=${encodeURIComponent(val)}&limit=5`)
+      const params = new URLSearchParams({ q: val, limit: '5' })
+      if (props.countryCode) {
+        params.set('countrycode', props.countryCode)
+      }
+      const res = await fetch(`/api/autocomplete?${params}`)
       if (res.ok) {
         suggestions.value = await res.json()
         isOpen.value = suggestions.value.length > 0
@@ -55,10 +66,11 @@ watch(inputValue, (val) => {
     } finally {
       isLoading.value = false
     }
-  }, 1000)
+  }, 300)
 })
 
 function selectSuggestion(suggestion: AutocompleteResult) {
+  isSelecting.value = true
   inputValue.value = suggestion.name || suggestion.displayName
   emit('update:modelValue', inputValue.value)
   emit('select', suggestion)
@@ -95,6 +107,28 @@ function handleBlur() {
     isOpen.value = false
   }, 150)
 }
+
+async function triggerSearch() {
+  if (inputValue.value.length < 2) return
+
+  isLoading.value = true
+  try {
+    const params = new URLSearchParams({ q: inputValue.value, limit: '5' })
+    if (props.countryCode) {
+      params.set('countrycode', props.countryCode)
+    }
+    const res = await fetch(`/api/autocomplete?${params}`)
+    if (res.ok) {
+      suggestions.value = await res.json()
+      isOpen.value = suggestions.value.length > 0
+      activeIndex.value = -1
+    }
+  } catch {
+    suggestions.value = []
+  } finally {
+    isLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -111,7 +145,7 @@ function handleBlur() {
       <button
         v-if="inputValue && !isLoading"
         class="search-btn"
-        @mousedown.prevent="emit('search')"
+        @mousedown.prevent="triggerSearch"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <circle cx="11" cy="11" r="8"/>

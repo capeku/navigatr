@@ -36,4 +36,5 @@ export interface NavigatrMap {
   updateDriverMarker(options: DriverMarkerOptions): void
   removeDriverMarker(): void
   panTo(location: LatLng): void
+  onClick(callback: (location: LatLng) => void): () => void
 }

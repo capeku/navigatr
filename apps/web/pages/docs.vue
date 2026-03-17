@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { LatLng, NavigatrMap, NavigatrMarker } from '@navigatr/web'
+import type { LatLng, NavigatrMap, NavigatrMarker, Navigatr, RideSession } from '@navigatr/web'
 
 interface AutocompleteResult {
   lat: number
@@ -12,16 +12,32 @@ interface AutocompleteResult {
 
 type TabId = 'route' | 'tracking'
 
+// Countries with ISO 3166-1 alpha-2 codes
+const countries = [
+  { code: '', name: 'All countries', flag: '' },
+  { code: 'GH', name: 'Ghana', flag: '' },
+  { code: 'NG', name: 'Nigeria', flag: '' },
+  { code: 'KE', name: 'Kenya', flag: '' },
+  { code: 'ZA', name: 'South Africa', flag: '' },
+  { code: 'US', name: 'United States', flag: '' },
+  { code: 'GB', name: 'United Kingdom', flag: '' },
+  { code: 'DE', name: 'Germany', flag: '' },
+  { code: 'FR', name: 'France', flag: '' },
+]
+
 const activeTab = ref<TabId>('route')
 const consoleOutput = ref<string[]>([])
 const isRunning = ref(false)
+const selectedCountry = ref('')
 
 // Route tab state
 const routeOriginInput = ref('')
 const routeDestinationInput = ref('')
 const routeResult = ref<any>(null)
+const pinDropMode = ref<'origin' | 'destination' | null>(null)
 
 // Map state
+let nav: Navigatr | null = null
 let map: NavigatrMap | null = null
 let originMarker: NavigatrMarker | null = null
 let destinationMarker: NavigatrMarker | null = null
@@ -33,7 +49,9 @@ const destinationCoords = ref<LatLng | null>(null)
 const isTracking = ref(false)
 const trackingProgress = ref(0)
 const currentETA = ref('')
-let trackingAnimationId: number | null = null
+let rideSession: RideSession | null = null
+let simulationInterval: ReturnType<typeof setInterval> | null = null
+let currentPolylineIndex = 0
 
 function log(message: string, type: 'info' | 'success' | 'error' = 'info') {
   const prefix = type === 'success' ? '✓' : type === 'error' ? '✗' : '→'
@@ -80,7 +98,10 @@ function handleOriginSelect(result: AutocompleteResult) {
   routeOriginInput.value = result.name || result.displayName.split(',')[0]
   log(`Origin selected: ${routeOriginInput.value}`, 'success')
   log(`  Coordinates: { lat: ${result.lat.toFixed(6)}, lng: ${result.lng.toFixed(6)} }`)
+  log(`  Drag the pin to adjust location`)
   updateMapMarkers()
+  // Pan to the selected location
+  map?.panTo(originCoords.value)
   if (destinationCoords.value) calculateRoute()
 }
 
@@ -89,7 +110,22 @@ function handleDestinationSelect(result: AutocompleteResult) {
   routeDestinationInput.value = result.name || result.displayName.split(',')[0]
   log(`Destination selected: ${routeDestinationInput.value}`, 'success')
   log(`  Coordinates: { lat: ${result.lat.toFixed(6)}, lng: ${result.lng.toFixed(6)} }`)
+  log(`  Drag the pin to adjust location`)
   updateMapMarkers()
+  // Pan to the selected location
+  map?.panTo(destinationCoords.value)
+  if (originCoords.value) calculateRoute()
+}
+
+function handleOriginDrag(location: LatLng) {
+  originCoords.value = location
+  log(`Origin adjusted: { lat: ${location.lat.toFixed(6)}, lng: ${location.lng.toFixed(6)} }`)
+  if (destinationCoords.value) calculateRoute()
+}
+
+function handleDestinationDrag(location: LatLng) {
+  destinationCoords.value = location
+  log(`Destination adjusted: { lat: ${location.lat.toFixed(6)}, lng: ${location.lng.toFixed(6)} }`)
   if (originCoords.value) calculateRoute()
 }
 
@@ -100,7 +136,12 @@ function updateMapMarkers() {
     if (originMarker) {
       originMarker.setLatLng(originCoords.value)
     } else {
-      originMarker = map.addMarker({ ...originCoords.value, label: 'Origin' })
+      originMarker = map.addMarker({
+        ...originCoords.value,
+        label: 'Origin',
+        draggable: true,
+        onDragEnd: handleOriginDrag
+      })
     }
   }
 
@@ -108,7 +149,12 @@ function updateMapMarkers() {
     if (destinationMarker) {
       destinationMarker.setLatLng(destinationCoords.value)
     } else {
-      destinationMarker = map.addMarker({ ...destinationCoords.value, label: 'Destination' })
+      destinationMarker = map.addMarker({
+        ...destinationCoords.value,
+        label: 'Destination',
+        draggable: true,
+        onDragEnd: handleDestinationDrag
+      })
     }
   }
 }
@@ -170,72 +216,152 @@ function calculateHeading(from: LatLng, to: LatLng): number {
   return ((Math.atan2(x, y) * 180 / Math.PI) + 360) % 360
 }
 
-function startTracking() {
-  if (!map || polyline.value.length === 0) {
+// Get heading to next point in polyline for smooth car rotation
+function getHeadingAtIndex(index: number): number {
+  if (polyline.value.length < 2) return 0
+  const nextIndex = Math.min(index + 1, polyline.value.length - 1)
+  return calculateHeading(polyline.value[index], polyline.value[nextIndex])
+}
+
+async function startTracking() {
+  if (!nav || !map || polyline.value.length === 0 || !originCoords.value || !destinationCoords.value) {
     log('Select origin and destination first', 'error')
     return
   }
 
   isTracking.value = true
   trackingProgress.value = 0
-  log('Starting driver simulation...', 'info')
-  log(`Simulating: map.updateDriverMarker({ lat, lng, icon: 'car', heading })`)
+  currentPolylineIndex = 0
 
-  let progress = 0
+  log('Starting driver simulation with RideSession...', 'info')
+  log(`Creating ride: nav.createRide({ pickup, destination })`)
+
+  // Create a RideSession that integrates with the core product
+  rideSession = nav.createRide({
+    pickup: originCoords.value,
+    destination: destinationCoords.value,
+    map,
+    onETAUpdate: (route, _phase) => {
+      // ETA is now calculated from actual route recalculation
+      const mins = Math.ceil(route.durationSeconds / 60)
+      currentETA.value = mins <= 1 ? '< 1 min' : `${mins} min`
+      log(`Route recalculated: ${route.durationText} (${route.distanceText})`)
+    },
+    onPhaseChange: (phase) => {
+      log(`Ride phase changed: ${phase}`, 'success')
+    },
+    onDriverMove: (_location) => {
+      // Update progress based on polyline position
+      const total = polyline.value.length
+      trackingProgress.value = (currentPolylineIndex / total) * 100
+    }
+  })
+
+  // Start the pickup phase with driver at origin
+  const startPos = polyline.value[0]
+  await rideSession.startPickup(startPos)
+  log(`Driver started at: { lat: ${startPos.lat.toFixed(6)}, lng: ${startPos.lng.toFixed(6)} }`)
+
+  // Simulate driver movement along the route using intervals
+  // This mimics real GPS updates coming from a backend
   const totalPoints = polyline.value.length
-  const speed = 0.5
+  const updateIntervalMs = 500 // Update every 500ms for smooth simulation
+  const pointsPerUpdate = 3 // Move through multiple points per update
 
-  function animate() {
-    if (progress >= totalPoints - 1) {
-      isTracking.value = false
+  simulationInterval = setInterval(async () => {
+    currentPolylineIndex += pointsPerUpdate
+
+    if (currentPolylineIndex >= totalPoints - 1) {
+      // Arrived at destination
+      currentPolylineIndex = totalPoints - 1
+      stopTracking()
       trackingProgress.value = 100
       currentETA.value = 'Arrived!'
       log('Driver arrived at destination!', 'success')
+      rideSession?.complete()
       return
     }
 
-    const currentIndex = Math.floor(progress)
-    const nextIndex = Math.min(currentIndex + 1, totalPoints - 1)
-    const currentPos = polyline.value[currentIndex]
-    const nextPos = polyline.value[nextIndex]
-    const heading = calculateHeading(currentPos, nextPos)
+    const currentPos = polyline.value[currentPolylineIndex]
+    const heading = getHeadingAtIndex(currentPolylineIndex)
 
-    map!.updateDriverMarker({
-      lat: currentPos.lat,
-      lng: currentPos.lng,
-      heading,
-      icon: 'car'
-    })
-
-    // Update progress and ETA
-    const pct = (totalPoints - currentIndex) / totalPoints
-    trackingProgress.value = ((currentIndex / totalPoints) * 100)
-    if (routeResult.value) {
-      const remainingMins = Math.ceil(routeResult.value.durationSeconds * pct / 60)
-      currentETA.value = remainingMins <= 1 ? '< 1 min' : `${remainingMins} min`
+    // Update driver location through RideSession
+    // This will: update marker, recalculate route, update ETA
+    if (rideSession) {
+      await rideSession.updateDriverLocation(currentPos)
+      // Also update heading for smooth car rotation
+      map?.updateDriverMarker({ ...currentPos, heading, icon: 'car' })
     }
-
-    progress += speed
-    trackingAnimationId = requestAnimationFrame(animate)
-  }
-
-  animate()
+  }, updateIntervalMs)
 }
 
 function stopTracking() {
-  if (trackingAnimationId) {
-    cancelAnimationFrame(trackingAnimationId)
-    trackingAnimationId = null
+  if (simulationInterval) {
+    clearInterval(simulationInterval)
+    simulationInterval = null
   }
   isTracking.value = false
   trackingProgress.value = 0
   currentETA.value = ''
+  currentPolylineIndex = 0
+  if (rideSession) {
+    rideSession.complete()
+    rideSession = null
+  }
   if (map) map.removeDriverMarker()
+}
+
+async function handlePinDrop(location: LatLng) {
+  if (!pinDropMode.value || !map) return
+
+  const mode = pinDropMode.value
+  pinDropMode.value = null // Exit pin drop mode after placing
+
+  log(`Pin dropped at: { lat: ${location.lat.toFixed(6)}, lng: ${location.lng.toFixed(6)} }`, 'success')
+
+  // Reverse geocode to get address
+  try {
+    const res = await fetch(`/api/reverse-geocode?lat=${location.lat}&lon=${location.lng}`)
+    const data = await res.json()
+    const displayName = data.displayName || `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
+
+    if (mode === 'origin') {
+      originCoords.value = location
+      routeOriginInput.value = displayName.split(',')[0]
+      if (originMarker) originMarker.setLatLng(location)
+      else originMarker = map.addMarker({ ...location, label: 'Origin' })
+      log(`Origin set: ${routeOriginInput.value}`)
+      if (destinationCoords.value) calculateRoute()
+    } else {
+      destinationCoords.value = location
+      routeDestinationInput.value = displayName.split(',')[0]
+      if (destinationMarker) destinationMarker.setLatLng(location)
+      else destinationMarker = map.addMarker({ ...location, label: 'Destination' })
+      log(`Destination set: ${routeDestinationInput.value}`)
+      if (originCoords.value) calculateRoute()
+    }
+  } catch {
+    // Fallback to coords if reverse geocode fails
+    const displayName = `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
+    if (mode === 'origin') {
+      originCoords.value = location
+      routeOriginInput.value = displayName
+      if (originMarker) originMarker.setLatLng(location)
+      else originMarker = map.addMarker({ ...location, label: 'Origin' })
+      if (destinationCoords.value) calculateRoute()
+    } else {
+      destinationCoords.value = location
+      routeDestinationInput.value = displayName
+      if (destinationMarker) destinationMarker.setLatLng(location)
+      else destinationMarker = map.addMarker({ ...location, label: 'Destination' })
+      if (originCoords.value) calculateRoute()
+    }
+  }
 }
 
 onMounted(async () => {
   const { Navigatr } = await import('@navigatr/web')
-  const nav = new Navigatr()
+  nav = new Navigatr()
 
   map = nav.map({
     container: 'sandbox-map',
@@ -243,8 +369,11 @@ onMounted(async () => {
     zoom: 12
   })
 
+  // Handle map clicks for pin drop
+  map.onClick(handlePinDrop)
+
   log('Navigatr SDK initialized', 'success')
-  log('Map ready - search for locations above')
+  log('Map ready - search for locations or drop pins')
 })
 
 onUnmounted(() => {
@@ -301,21 +430,62 @@ onUnmounted(() => {
             <p class="method-desc">Search for locations using autocomplete, then calculate route.</p>
 
             <div class="input-group">
-              <label>origin</label>
+              <label>country</label>
+              <select v-model="selectedCountry" class="country-select">
+                <option v-for="country in countries" :key="country.code" :value="country.code">
+                  {{ country.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <div class="label-row">
+                <label>origin</label>
+                <button
+                  class="pin-drop-btn"
+                  :class="{ active: pinDropMode === 'origin' }"
+                  @click="pinDropMode = pinDropMode === 'origin' ? null : 'origin'"
+                  title="Drop pin on map"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                </button>
+              </div>
               <AddressSearch
                 v-model="routeOriginInput"
-                placeholder="Search origin..."
+                placeholder="Search or drop pin..."
+                :country-code="selectedCountry"
                 @select="handleOriginSelect"
               />
             </div>
 
             <div class="input-group">
-              <label>destination</label>
+              <div class="label-row">
+                <label>destination</label>
+                <button
+                  class="pin-drop-btn"
+                  :class="{ active: pinDropMode === 'destination' }"
+                  @click="pinDropMode = pinDropMode === 'destination' ? null : 'destination'"
+                  title="Drop pin on map"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                </button>
+              </div>
               <AddressSearch
                 v-model="routeDestinationInput"
-                placeholder="Search destination..."
+                placeholder="Search or drop pin..."
+                :country-code="selectedCountry"
                 @select="handleDestinationSelect"
               />
+            </div>
+
+            <div v-if="pinDropMode" class="pin-drop-hint">
+              Click on the map to set {{ pinDropMode }}
             </div>
 
             <div v-if="routeResult" class="result-box">
@@ -563,10 +733,82 @@ onUnmounted(() => {
   gap: 6px;
 }
 
+.label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pin-drop-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pin-drop-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pin-drop-btn.active {
+  background: rgba(0, 255, 148, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pin-drop-hint {
+  padding: 10px 14px;
+  background: rgba(0, 255, 148, 0.1);
+  border: 1px dashed var(--accent);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--accent);
+  text-align: center;
+}
+
 .input-group label {
   font-size: 12px;
   color: var(--text-muted);
   font-family: 'IBM Plex Mono', monospace;
+}
+
+.country-select {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.country-select:hover {
+  border-color: var(--accent);
+}
+
+.country-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.country-select option {
+  background: var(--card-bg);
+  color: var(--text);
 }
 
 .result-box {

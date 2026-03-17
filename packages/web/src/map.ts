@@ -111,6 +111,14 @@ export function createMap(config: MapConfig): NavigatrMap {
 
     panTo(location: LatLng): void {
       map.panTo([location.lat, location.lng])
+    },
+
+    onClick(callback: (location: LatLng) => void): () => void {
+      const handler = (e: L.LeafletMouseEvent) => {
+        callback({ lat: e.latlng.lat, lng: e.latlng.lng })
+      }
+      map.on('click', handler)
+      return () => map.off('click', handler)
     }
   }
 }
