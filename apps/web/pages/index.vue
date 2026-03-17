@@ -67,6 +67,9 @@
       </div>
 
       <div class="footer">
+        <NuxtLink to="/docs" class="docs-link">
+          View Documentation
+        </NuxtLink>
         <a href="https://github.com/anthropics/navigatr" target="_blank" class="github-link">
           View on GitHub
         </a>
@@ -165,6 +168,26 @@
 
 .footer {
   margin-top: auto;
+  display: flex;
+  gap: 12px;
+}
+
+.docs-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #000;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 20px;
+  background: var(--accent);
+  border-radius: 8px;
+  transition: opacity 0.2s;
+}
+
+.docs-link:hover {
+  opacity: 0.9;
 }
 
 .github-link {

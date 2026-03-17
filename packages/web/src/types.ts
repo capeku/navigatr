@@ -10,6 +10,8 @@ export interface MarkerOptions {
   lat: number
   lng: number
   label?: string
+  draggable?: boolean
+  onDragEnd?: (location: LatLng) => void
 }
 
 export interface DriverMarkerOptions {
@@ -21,8 +23,13 @@ export interface DriverMarkerOptions {
 
 export type LocationUpdateCallback = (location: LatLng) => void
 
+export interface NavigatrMarker {
+  setLatLng(location: LatLng): void
+  remove(): void
+}
+
 export interface NavigatrMap {
-  addMarker(options: MarkerOptions): void
+  addMarker(options: MarkerOptions): NavigatrMarker
   drawRoute(polyline: LatLng[]): void
   fitRoute(polyline: LatLng[]): void
   clearRoute(): void

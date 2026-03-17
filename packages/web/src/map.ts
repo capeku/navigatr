@@ -1,6 +1,6 @@
 import L from 'leaflet'
 import type { LatLng } from '@navigatr/core'
-import type { MapConfig, MarkerOptions, DriverMarkerOptions, NavigatrMap } from './types'
+import type { MapConfig, MarkerOptions, DriverMarkerOptions, NavigatrMap, NavigatrMarker } from './types'
 
 const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
 const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -38,10 +38,29 @@ export function createMap(config: MapConfig): NavigatrMap {
   let driverMarker: L.Marker | null = null
 
   return {
-    addMarker(options: MarkerOptions): void {
-      const marker = L.marker([options.lat, options.lng]).addTo(map)
+    addMarker(options: MarkerOptions): NavigatrMarker {
+      const marker = L.marker([options.lat, options.lng], {
+        draggable: options.draggable ?? false
+      }).addTo(map)
+
       if (options.label) {
         marker.bindPopup(options.label)
+      }
+
+      if (options.draggable && options.onDragEnd) {
+        marker.on('dragend', () => {
+          const pos = marker.getLatLng()
+          options.onDragEnd!({ lat: pos.lat, lng: pos.lng })
+        })
+      }
+
+      return {
+        setLatLng(location: LatLng): void {
+          marker.setLatLng([location.lat, location.lng])
+        },
+        remove(): void {
+          map.removeLayer(marker)
+        }
       }
     },
 

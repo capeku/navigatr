@@ -86,6 +86,39 @@ function handleDestinationSelect(result: AutocompleteResult) {
   if (pickup.value) calculateRoute()
 }
 
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  try {
+    const res = await fetch(`/api/reverse-geocode?lat=${lat}&lng=${lng}`)
+    if (!res.ok) return 'Dropped pin'
+    const data = await res.json()
+    return data.address?.road || data.address?.suburb || data.display_name?.split(',')[0] || 'Dropped pin'
+  } catch {
+    return 'Dropped pin'
+  }
+}
+
+async function handlePickupDrag(location: { lat: number; lng: number }) {
+  pickup.value = { lat: location.lat, lng: location.lng, displayName: '' }
+  pickupInput.value = 'Adjusting...'
+
+  const name = await reverseGeocode(location.lat, location.lng)
+  pickupInput.value = name
+  pickup.value.displayName = name
+
+  if (destination.value) calculateRoute()
+}
+
+async function handleDestinationDrag(location: { lat: number; lng: number }) {
+  destination.value = { lat: location.lat, lng: location.lng, displayName: '' }
+  destinationInput.value = 'Adjusting...'
+
+  const name = await reverseGeocode(location.lat, location.lng)
+  destinationInput.value = name
+  destination.value.displayName = name
+
+  if (pickup.value) calculateRoute()
+}
+
 async function handlePickupSearch() {
   if (!pickupInput.value.trim()) return
   try {
@@ -147,6 +180,8 @@ onMounted(async () => {
         :polyline="polyline"
         :origin="pickup"
         :destination="destination"
+        @update:origin="handlePickupDrag"
+        @update:destination="handleDestinationDrag"
       />
 
       <div class="app-ui">

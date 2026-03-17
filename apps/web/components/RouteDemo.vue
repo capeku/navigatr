@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { LatLng, RouteResult, NavigatrMap } from '@navigatr/web'
+import type { LatLng, RouteResult, NavigatrMap, NavigatrMarker } from '@navigatr/web'
 
 const props = defineProps<{
   polyline: LatLng[]
@@ -7,7 +7,14 @@ const props = defineProps<{
   destination: LatLng | null
 }>()
 
+const emit = defineEmits<{
+  'update:origin': [location: LatLng]
+  'update:destination': [location: LatLng]
+}>()
+
 let map: NavigatrMap | null = null
+let originMarker: NavigatrMarker | null = null
+let destinationMarker: NavigatrMarker | null = null
 
 onMounted(async () => {
   const { Navigatr } = await import('@navigatr/web')
@@ -31,11 +38,35 @@ watch(() => [props.polyline, props.origin, props.destination], () => {
   }
 
   if (props.origin) {
-    map.addMarker({ ...props.origin, label: 'Origin' })
+    if (originMarker) {
+      originMarker.setLatLng(props.origin)
+    } else {
+      originMarker = map.addMarker({
+        ...props.origin,
+        label: 'Pickup',
+        draggable: true,
+        onDragEnd: (location) => emit('update:origin', location)
+      })
+    }
+  } else if (originMarker) {
+    originMarker.remove()
+    originMarker = null
   }
 
   if (props.destination) {
-    map.addMarker({ ...props.destination, label: 'Destination' })
+    if (destinationMarker) {
+      destinationMarker.setLatLng(props.destination)
+    } else {
+      destinationMarker = map.addMarker({
+        ...props.destination,
+        label: 'Destination',
+        draggable: true,
+        onDragEnd: (location) => emit('update:destination', location)
+      })
+    }
+  } else if (destinationMarker) {
+    destinationMarker.remove()
+    destinationMarker = null
   }
 }, { deep: true })
 </script>
