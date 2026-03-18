@@ -99,7 +99,8 @@ export function createMap(config: MapConfig): NavigatrMap {
     center: [config.center.lng, config.center.lat],
     zoom: config.zoom ?? 13,
     pitch: config.pitch ?? 0,
-    bearing: config.bearing ?? 0
+    bearing: config.bearing ?? 0,
+    attributionControl: false
   })
 
   const markers: Map<string, maplibregl.Marker> = new Map()
