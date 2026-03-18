@@ -5,16 +5,124 @@ const props = defineProps<{
   polyline: LatLng[]
   origin: LatLng | null
   destination: LatLng | null
+  routeResult: RouteResult | null
 }>()
 
 const emit = defineEmits<{
   'update:origin': [location: LatLng]
   'update:destination': [location: LatLng]
+  'navigation-progress': [progress: number]
+  'navigation-end': []
 }>()
 
 let map: NavigatrMap | null = null
 let originMarker: NavigatrMarker | null = null
 let destinationMarker: NavigatrMarker | null = null
+let simulationInterval: ReturnType<typeof setInterval> | null = null
+let floatIndex = 0
+
+const isNavigating = ref(false)
+const simulationSpeed = 60 // km/h
+
+function haversineDistance(p1: LatLng, p2: LatLng): number {
+  const R = 6371000
+  const lat1 = p1.lat * Math.PI / 180
+  const lat2 = p2.lat * Math.PI / 180
+  const dLat = (p2.lat - p1.lat) * Math.PI / 180
+  const dLng = (p2.lng - p1.lng) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function startNavigation() {
+  if (!map || props.polyline.length === 0 || !props.routeResult) return
+
+  isNavigating.value = true
+  floatIndex = 0
+
+  // Hide markers during navigation
+  if (originMarker) originMarker.remove()
+  if (destinationMarker) destinationMarker.remove()
+  originMarker = null
+  destinationMarker = null
+
+  // Start navigation mode
+  map.startNavigation(props.routeResult)
+
+  // Calculate simulation parameters
+  const poly = props.polyline
+  const totalPoints = poly.length
+  const updateIntervalMs = 100
+  const speedMps = (simulationSpeed * 1000) / 3600
+  const distancePerUpdate = speedMps * (updateIntervalMs / 1000)
+
+  let totalDistance = 0
+  for (let i = 0; i < poly.length - 1; i++) {
+    totalDistance += haversineDistance(poly[i], poly[i + 1])
+  }
+  const avgPointDistance = totalDistance / (poly.length - 1)
+  const pointsPerUpdate = Math.max(1, distancePerUpdate / avgPointDistance)
+
+  simulationInterval = setInterval(() => {
+    floatIndex += pointsPerUpdate
+
+    if (floatIndex >= totalPoints - 1) {
+      map!.updatePosition(poly[totalPoints - 1])
+      stopNavigation()
+      emit('navigation-progress', 100)
+      emit('navigation-end')
+      return
+    }
+
+    const baseIndex = Math.floor(floatIndex)
+    const fraction = floatIndex - baseIndex
+    const p1 = poly[baseIndex]
+    const p2 = poly[Math.min(baseIndex + 1, totalPoints - 1)]
+
+    const interpolatedPos: LatLng = {
+      lat: p1.lat + (p2.lat - p1.lat) * fraction,
+      lng: p1.lng + (p2.lng - p1.lng) * fraction
+    }
+
+    map!.updatePosition(interpolatedPos)
+    emit('navigation-progress', Math.round((floatIndex / (totalPoints - 1)) * 100))
+  }, updateIntervalMs)
+}
+
+function stopNavigation() {
+  if (simulationInterval) {
+    clearInterval(simulationInterval)
+    simulationInterval = null
+  }
+  isNavigating.value = false
+  floatIndex = 0
+
+  if (map) {
+    map.stopNavigation()
+    // Restore markers
+    if (props.origin) {
+      originMarker = map.addMarker({
+        ...props.origin,
+        label: 'Pickup',
+        draggable: true,
+        onDragEnd: (location) => emit('update:origin', location)
+      })
+    }
+    if (props.destination) {
+      destinationMarker = map.addMarker({
+        ...props.destination,
+        label: 'Destination',
+        draggable: true,
+        onDragEnd: (location) => emit('update:destination', location)
+      })
+    }
+    // Redraw route
+    if (props.polyline.length > 0) {
+      map.drawRoute(props.polyline)
+      map.fitRoute(props.polyline)
+    }
+  }
+}
 
 onMounted(async () => {
   const { Navigatr } = await import('@navigatr/web')
@@ -27,8 +135,18 @@ onMounted(async () => {
   })
 })
 
+onUnmounted(() => {
+  stopNavigation()
+})
+
+defineExpose({
+  startNavigation,
+  stopNavigation,
+  isNavigating
+})
+
 watch(() => [props.polyline, props.origin, props.destination], () => {
-  if (!map) return
+  if (!map || isNavigating.value) return
 
   map.clearRoute()
 

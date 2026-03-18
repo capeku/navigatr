@@ -19,6 +19,12 @@ const routeResult = ref<RouteResult | null>(null)
 const polyline = ref<LatLng[]>([])
 const loading = ref(false)
 
+// Navigation state
+const routeDemoRef = ref<{ startNavigation: () => void, stopNavigation: () => void, isNavigating: Ref<boolean> } | null>(null)
+const isNavigating = ref(false)
+const navigationProgress = ref(0)
+const hasArrived = ref(false)
+
 function formatDuration(seconds: number): string {
   const mins = Math.round(seconds / 60)
   if (mins < 60) return `${mins} min`
@@ -164,6 +170,38 @@ async function calculateRoute() {
   }
 }
 
+function startRide() {
+  if (routeDemoRef.value) {
+    isNavigating.value = true
+    hasArrived.value = false
+    navigationProgress.value = 0
+    routeDemoRef.value.startNavigation()
+  }
+}
+
+function cancelRide() {
+  if (routeDemoRef.value) {
+    routeDemoRef.value.stopNavigation()
+    isNavigating.value = false
+    hasArrived.value = false
+    navigationProgress.value = 0
+  }
+}
+
+function handleNavigationProgress(progress: number) {
+  navigationProgress.value = progress
+}
+
+function handleNavigationEnd() {
+  hasArrived.value = true
+  isNavigating.value = false
+}
+
+function resetRide() {
+  hasArrived.value = false
+  navigationProgress.value = 0
+}
+
 onMounted(async () => {
   try {
     pickup.value = await geocode(pickupInput.value)
@@ -177,56 +215,106 @@ onMounted(async () => {
   <PhoneMockup>
     <div class="app-screen">
       <RouteDemo
+        ref="routeDemoRef"
         :polyline="polyline"
         :origin="pickup"
         :destination="destination"
+        :route-result="routeResult"
         @update:origin="handlePickupDrag"
         @update:destination="handleDestinationDrag"
+        @navigation-progress="handleNavigationProgress"
+        @navigation-end="handleNavigationEnd"
       />
 
       <div class="app-ui">
-        <div class="search-card">
-          <div class="input-row">
-            <span class="input-dot pickup"></span>
-            <AddressSearch
-              v-model="pickupInput"
-              placeholder="Pickup location"
-              @select="handlePickupSelect"
-              @search="handlePickupSearch"
-            />
-          </div>
-          <div class="input-divider"></div>
-          <div class="input-row">
-            <span class="input-dot destination"></span>
-            <AddressSearch
-              v-model="destinationInput"
-              placeholder="Where to?"
-              @select="handleDestinationSelect"
-              @search="handleDestinationSearch"
-            />
-          </div>
-        </div>
-
-        <div v-if="routeResult" class="bottom-sheet">
-          <div class="route-stats">
-            <div class="stat">
-              <span class="stat-value">{{ routeResult.durationText }}</span>
-              <span class="stat-label">duration</span>
+        <!-- Normal search UI -->
+        <template v-if="!isNavigating && !hasArrived">
+          <div class="search-card">
+            <div class="input-row">
+              <span class="input-dot pickup"></span>
+              <AddressSearch
+                v-model="pickupInput"
+                placeholder="Pickup location"
+                @select="handlePickupSelect"
+                @search="handlePickupSearch"
+              />
             </div>
-            <div class="stat-divider"></div>
-            <div class="stat">
-              <span class="stat-value">{{ routeResult.distanceText }}</span>
-              <span class="stat-label">distance</span>
+            <div class="input-divider"></div>
+            <div class="input-row">
+              <span class="input-dot destination"></span>
+              <AddressSearch
+                v-model="destinationInput"
+                placeholder="Where to?"
+                @select="handleDestinationSelect"
+                @search="handleDestinationSearch"
+              />
             </div>
           </div>
 
-          <button
-            class="request-btn"
-            :disabled="loading"
-          >
-            {{ loading ? 'Calculating...' : 'Request Ride' }}
-          </button>
-        </div>
+          <div v-if="routeResult" class="bottom-sheet">
+            <div class="route-stats">
+              <div class="stat">
+                <span class="stat-value">{{ routeResult.durationText }}</span>
+                <span class="stat-label">duration</span>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat">
+                <span class="stat-value">{{ routeResult.distanceText }}</span>
+                <span class="stat-label">distance</span>
+              </div>
+            </div>
+
+            <button
+              class="request-btn"
+              :disabled="loading"
+              @click="startRide"
+            >
+              {{ loading ? 'Calculating...' : 'Request Ride' }}
+            </button>
+          </div>
+        </template>
+
+        <!-- Navigation UI -->
+        <template v-if="isNavigating">
+          <div class="nav-hud">
+            <div class="nav-status">
+              <div class="nav-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+                </svg>
+              </div>
+              <div class="nav-info">
+                <div class="nav-title">En route to destination</div>
+                <div class="nav-progress-text">{{ navigationProgress }}% complete</div>
+              </div>
+            </div>
+            <div class="nav-progress-bar">
+              <div class="nav-progress-fill" :style="{ width: navigationProgress + '%' }"></div>
+            </div>
+          </div>
+
+          <div class="bottom-sheet nav-bottom">
+            <button class="cancel-btn" @click="cancelRide">
+              Cancel Ride
+            </button>
+          </div>
+        </template>
+
+        <!-- Arrived UI -->
+        <template v-if="hasArrived">
+          <div class="arrived-sheet">
+            <div class="arrived-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+            </div>
+            <div class="arrived-title">You've arrived!</div>
+            <div class="arrived-subtitle">{{ destinationInput }}</div>
+            <button class="done-btn" @click="resetRide">
+              Done
+            </button>
+          </div>
+        </template>
       </div>
     </div>
   </PhoneMockup>
@@ -354,5 +442,136 @@ onMounted(async () => {
 .request-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Navigation UI */
+.nav-hud {
+  margin: 52px 16px 16px;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.nav-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.nav-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  border-radius: 10px;
+  color: #000;
+}
+
+.nav-info {
+  flex: 1;
+}
+
+.nav-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 2px;
+}
+
+.nav-progress-text {
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.nav-progress-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.nav-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.1s linear;
+}
+
+.nav-bottom {
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+}
+
+.cancel-btn {
+  width: 100%;
+  padding: 16px;
+  background: #ff4444;
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.cancel-btn:hover {
+  opacity: 0.9;
+}
+
+/* Arrived UI */
+.arrived-sheet {
+  margin-top: auto;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 24px 24px 0 0;
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.arrived-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  border-radius: 50%;
+  color: #000;
+}
+
+.arrived-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 8px;
+}
+
+.arrived-subtitle {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 24px;
+}
+
+.done-btn {
+  width: 100%;
+  padding: 16px;
+  background: #111;
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.done-btn:hover {
+  opacity: 0.9;
 }
 </style>

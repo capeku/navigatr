@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { LatLng, NavigatrMap, NavigatrMarker, Navigatr, RideSession } from '@navigatr/web'
+import type { LatLng, NavigatrMap, NavigatrMarker, Navigatr, RouteResult } from '@navigatr/web'
 
 interface AutocompleteResult {
   lat: number
@@ -116,7 +116,6 @@ const isTracking = ref(false)
 const trackingProgress = ref(0)
 const currentETA = ref('')
 const simulationSpeed = ref(60) // km/h
-let rideSession: RideSession | null = null
 let simulationInterval: ReturnType<typeof setInterval> | null = null
 let floatIndex = 0
 
@@ -405,15 +404,6 @@ async function calculateRoute() {
   isRunning.value = false
 }
 
-function calculateHeading(from: LatLng, to: LatLng): number {
-  const dLng = (to.lng - from.lng) * Math.PI / 180
-  const lat1 = from.lat * Math.PI / 180
-  const lat2 = to.lat * Math.PI / 180
-  const x = Math.sin(dLng) * Math.cos(lat2)
-  const y = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng)
-  return ((Math.atan2(x, y) * 180 / Math.PI) + 360) % 360
-}
-
 function haversineDistance(p1: LatLng, p2: LatLng): number {
   const R = 6371000 // Earth radius in meters
   const lat1 = p1.lat * Math.PI / 180
@@ -426,43 +416,28 @@ function haversineDistance(p1: LatLng, p2: LatLng): number {
 }
 
 async function startTracking() {
-  if (!nav || !map || polyline.value.length === 0 || !originCoords.value || !destinationCoords.value) {
-    log('Select origin and destination first', 'error')
+  if (!map || polyline.value.length === 0 || !routeResult.value) {
+    log('Calculate a route first', 'error')
     return
   }
 
   isTracking.value = true
-  trackingProgress.value = 0
   floatIndex = 0
 
-  log('Starting driver simulation with RideSession...', 'info')
-  log(`Creating ride: nav.createRide({ pickup, destination })`)
+  // Create RouteResult object for navigation
+  const route: RouteResult = {
+    polyline: polyline.value,
+    durationSeconds: routeResult.value.durationSeconds,
+    durationText: `${routeResult.value.durationMins} min`,
+    distanceMeters: parseFloat(routeResult.value.distanceKm) * 1000,
+    distanceText: `${routeResult.value.distanceKm} km`
+  }
 
-  // Create a RideSession that integrates with the core product
-  rideSession = nav.createRide({
-    pickup: originCoords.value,
-    destination: destinationCoords.value,
-    map,
-    onETAUpdate: (route, _phase) => {
-      // ETA is now calculated from actual route recalculation
-      const mins = Math.ceil(route.durationSeconds / 60)
-      currentETA.value = mins <= 1 ? '< 1 min' : `${mins} min`
-      log(`Route recalculated: ${route.durationText} (${route.distanceText})`)
-    },
-    onPhaseChange: (phase) => {
-      log(`Ride phase changed: ${phase}`, 'success')
-    },
-    onDriverMove: (_location) => {
-      // Progress is updated in the simulation interval
-    }
-  })
+  // Start navigation (same as NavigationDemo.vue)
+  map.startNavigation(route)
+  log('Navigation started', 'success')
 
-  // Start the pickup phase with driver at origin
-  const startPos = polyline.value[0]
-  await rideSession.startPickup(startPos)
-  log(`Driver started at: { lat: ${startPos.lat.toFixed(6)}, lng: ${startPos.lng.toFixed(6)} }`)
-
-  // Calculate simulation parameters based on speed (matching NavigationDemo.vue)
+  // Calculate simulation parameters based on speed (same as NavigationDemo.vue)
   const poly = polyline.value
   const totalPoints = poly.length
   const updateIntervalMs = 100 // Update every 100ms for smooth movement
@@ -479,24 +454,20 @@ async function startTracking() {
   // How many points to advance per update
   const pointsPerUpdate = Math.max(1, distancePerUpdate / avgPointDistance)
 
-  simulationInterval = setInterval(async () => {
+  simulationInterval = setInterval(() => {
     floatIndex += pointsPerUpdate
 
     if (floatIndex >= totalPoints - 1) {
-      // Arrived at destination
-      floatIndex = totalPoints - 1
-      const finalPos = poly[totalPoints - 1]
-      map?.updateDriverMarker({ ...finalPos, heading: 0, icon: 'car' })
-      map?.updateTraveledRoute(poly, totalPoints - 1)
+      // Reached end
+      map!.updatePosition(poly[totalPoints - 1])
       stopTracking()
       trackingProgress.value = 100
       currentETA.value = 'Arrived!'
-      log('Driver arrived at destination!', 'success')
-      rideSession?.complete()
+      log('Arrived at destination!', 'success')
       return
     }
 
-    // Interpolate between points for smoother movement
+    // Interpolate between points for smoother movement (same as NavigationDemo.vue)
     const baseIndex = Math.floor(floatIndex)
     const fraction = floatIndex - baseIndex
     const p1 = poly[baseIndex]
@@ -507,17 +478,8 @@ async function startTracking() {
       lng: p1.lng + (p2.lng - p1.lng) * fraction
     }
 
-    const heading = calculateHeading(p1, p2)
+    map!.updatePosition(interpolatedPos)
     trackingProgress.value = Math.round((floatIndex / (totalPoints - 1)) * 100)
-
-    // Update driver location through RideSession
-    if (rideSession) {
-      await rideSession.updateDriverLocation(interpolatedPos)
-      // Also update heading for smooth car rotation
-      map?.updateDriverMarker({ ...interpolatedPos, heading, icon: 'car' })
-      // Grey out the traveled portion of the route
-      map?.updateTraveledRoute(poly, baseIndex)
-    }
   }, updateIntervalMs)
 }
 
@@ -530,14 +492,9 @@ function stopTracking() {
   trackingProgress.value = 0
   currentETA.value = ''
   floatIndex = 0
-  if (rideSession) {
-    rideSession.complete()
-    rideSession = null
-  }
+
   if (map) {
-    map.removeDriverMarker()
-    // Clear the traveled route overlay
-    map.updateTraveledRoute([], 0)
+    map.stopNavigation()
   }
 }
 

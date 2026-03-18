@@ -67,11 +67,14 @@
       </div>
 
       <div class="footer">
-        <NuxtLink to="/docs" class="docs-link">
-          View Documentation
+        <NuxtLink to="/api" class="docs-link">
+          API Reference
+        </NuxtLink>
+        <NuxtLink to="/docs" class="sandbox-link">
+          Sandbox
         </NuxtLink>
         <a href="https://github.com/anthropics/navigatr" target="_blank" class="github-link">
-          View on GitHub
+          GitHub
         </a>
       </div>
     </div>
@@ -188,6 +191,24 @@
 
 .docs-link:hover {
   opacity: 0.9;
+}
+
+.sandbox-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.sandbox-link:hover {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .github-link {
