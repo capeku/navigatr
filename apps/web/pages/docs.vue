@@ -271,20 +271,6 @@ function clearMap() {
   stopTracking()
 }
 
-function decodePolyline(encoded: string): LatLng[] {
-  const coords: LatLng[] = []
-  let index = 0, lat = 0, lng = 0
-  while (index < encoded.length) {
-    let shift = 0, result = 0, byte: number
-    do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5 } while (byte >= 0x20)
-    lat += result & 1 ? ~(result >> 1) : result >> 1
-    shift = 0; result = 0
-    do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5 } while (byte >= 0x20)
-    lng += result & 1 ? ~(result >> 1) : result >> 1
-    coords.push({ lat: lat / 1e6, lng: lng / 1e6 })
-  }
-  return coords
-}
 
 function handleOriginSelect(result: AutocompleteResult) {
   originCoords.value = { lat: result.lat, lng: result.lng }
@@ -353,50 +339,36 @@ function updateMapMarkers() {
 }
 
 async function calculateRoute() {
-  if (!originCoords.value || !destinationCoords.value) return
+  if (!originCoords.value || !destinationCoords.value || !nav) return
   isRunning.value = true
   stopTracking()
 
   log(`nav.route({ origin, destination })`)
   try {
-    const routeRes = await fetch('/api/route', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        locations: [
-          { lon: originCoords.value.lng, lat: originCoords.value.lat, type: 'break' },
-          { lon: destinationCoords.value.lng, lat: destinationCoords.value.lat, type: 'break' }
-        ],
-        costing: 'auto',
-        directions_options: { units: 'km' }
-      })
+    const result = await nav.route({
+      origin: originCoords.value,
+      destination: destinationCoords.value
     })
 
-    if (!routeRes.ok) {
-      throw new Error(`Route calculation failed: ${routeRes.status}`)
-    }
+    const durationMins = Math.round(result.durationSeconds / 60)
+    const distanceKm = (result.distanceMeters / 1000).toFixed(1)
 
-    const routeData = await routeRes.json()
-    const decoded = decodePolyline(routeData.trip.legs[0].shape)
-    const durationMins = Math.round(routeData.trip.summary.time / 60)
-    const distanceKm = routeData.trip.summary.length.toFixed(1)
-
-    routeResult.value = { durationMins, distanceKm, durationSeconds: routeData.trip.summary.time }
-    polyline.value = decoded
+    routeResult.value = { durationMins, distanceKm, durationSeconds: result.durationSeconds }
+    polyline.value = result.polyline
 
     log(`Route calculated:`, 'success')
     log(`  Duration: ${durationMins} min`)
     log(`  Distance: ${distanceKm} km`)
-    log(`  Polyline: ${decoded.length} points`)
+    log(`  Polyline: ${result.polyline.length} points`)
 
     if (map) {
       map.clearRoute()
-      map.drawRoute(decoded, {
+      map.drawRoute(result.polyline, {
         color: mapStyle.value.polyline.color,
         weight: mapStyle.value.polyline.weight,
         opacity: mapStyle.value.polyline.opacity
       })
-      map.fitRoute(decoded)
+      map.fitRoute(result.polyline)
     }
   } catch (e) {
     log(`Error: ${e}`, 'error')
@@ -499,7 +471,7 @@ function stopTracking() {
 }
 
 async function handlePinDrop(location: LatLng) {
-  if (!pinDropMode.value || !map) return
+  if (!pinDropMode.value || !map || !nav) return
 
   const mode = pinDropMode.value
   pinDropMode.value = null // Exit pin drop mode after placing
@@ -507,42 +479,28 @@ async function handlePinDrop(location: LatLng) {
   log(`Pin dropped at: { lat: ${location.lat.toFixed(6)}, lng: ${location.lng.toFixed(6)} }`, 'success')
 
   // Reverse geocode to get address
+  let displayName = `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
   try {
-    const res = await fetch(`/api/reverse-geocode?lat=${location.lat}&lon=${location.lng}`)
-    const data = await res.json()
-    const displayName = data.displayName || `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
-
-    if (mode === 'origin') {
-      originCoords.value = location
-      routeOriginInput.value = displayName.split(',')[0]
-      if (originMarker) originMarker.setLatLng(location)
-      else originMarker = map.addMarker({ ...location, label: 'Origin' })
-      log(`Origin set: ${routeOriginInput.value}`)
-      if (destinationCoords.value) calculateRoute()
-    } else {
-      destinationCoords.value = location
-      routeDestinationInput.value = displayName.split(',')[0]
-      if (destinationMarker) destinationMarker.setLatLng(location)
-      else destinationMarker = map.addMarker({ ...location, label: 'Destination' })
-      log(`Destination set: ${routeDestinationInput.value}`)
-      if (originCoords.value) calculateRoute()
-    }
+    const result = await nav.reverseGeocode({ lat: location.lat, lng: location.lng })
+    displayName = result.displayName.split(',')[0] || displayName
   } catch {
-    // Fallback to coords if reverse geocode fails
-    const displayName = `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
-    if (mode === 'origin') {
-      originCoords.value = location
-      routeOriginInput.value = displayName
-      if (originMarker) originMarker.setLatLng(location)
-      else originMarker = map.addMarker({ ...location, label: 'Origin' })
-      if (destinationCoords.value) calculateRoute()
-    } else {
-      destinationCoords.value = location
-      routeDestinationInput.value = displayName
-      if (destinationMarker) destinationMarker.setLatLng(location)
-      else destinationMarker = map.addMarker({ ...location, label: 'Destination' })
-      if (originCoords.value) calculateRoute()
-    }
+    // Keep fallback displayName
+  }
+
+  if (mode === 'origin') {
+    originCoords.value = location
+    routeOriginInput.value = displayName
+    if (originMarker) originMarker.setLatLng(location)
+    else originMarker = map.addMarker({ ...location, label: 'Origin' })
+    log(`Origin set: ${routeOriginInput.value}`)
+    if (destinationCoords.value) calculateRoute()
+  } else {
+    destinationCoords.value = location
+    routeDestinationInput.value = displayName
+    if (destinationMarker) destinationMarker.setLatLng(location)
+    else destinationMarker = map.addMarker({ ...location, label: 'Destination' })
+    log(`Destination set: ${routeDestinationInput.value}`)
+    if (originCoords.value) calculateRoute()
   }
 }
 

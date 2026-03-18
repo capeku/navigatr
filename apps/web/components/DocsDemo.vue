@@ -1,14 +1,7 @@
 <script setup lang="ts">
-import type { LatLng, RouteResult, NavigatrMap, NavigatrMarker } from '@navigatr/web'
+import type { LatLng, RouteResult, NavigatrMap, NavigatrMarker, AutocompleteResult } from '@navigatr/web'
 
-interface AutocompleteResult {
-  lat: number
-  lng: number
-  displayName: string
-  name: string
-  city?: string
-  country?: string
-}
+const { getNavigatr } = useNavigatr()
 
 interface Step {
   title: string
@@ -113,50 +106,15 @@ let pickupMarker: NavigatrMarker | null = null
 let destinationMarker: NavigatrMarker | null = null
 let driverAnimationId: number | null = null
 
-function decodePolyline(encoded: string): LatLng[] {
-  const coords: LatLng[] = []
-  let index = 0, lat = 0, lng = 0
-  while (index < encoded.length) {
-    let shift = 0, result = 0, byte: number
-    do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5 } while (byte >= 0x20)
-    lat += result & 1 ? ~(result >> 1) : result >> 1
-    shift = 0; result = 0
-    do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5 } while (byte >= 0x20)
-    lng += result & 1 ? ~(result >> 1) : result >> 1
-    coords.push({ lat: lat / 1e6, lng: lng / 1e6 })
-  }
-  return coords
-}
-
 async function geocode(address: string): Promise<LatLng> {
-  const res = await fetch(`/api/geocode?q=${encodeURIComponent(address)}`)
-  const data = await res.json()
-  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+  const nav = await getNavigatr()
+  const result = await nav.geocode({ address })
+  return { lat: result.lat, lng: result.lng }
 }
 
-async function calculateRoute(orig: LatLng, dest: LatLng) {
-  const res = await fetch('/api/route', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      locations: [
-        { lon: orig.lng, lat: orig.lat, type: 'break' },
-        { lon: dest.lng, lat: dest.lat, type: 'break' }
-      ],
-      costing: 'auto',
-      directions_options: { units: 'km' }
-    })
-  })
-  const data = await res.json()
-  const decodedPolyline = decodePolyline(data.trip.legs[0].shape)
-  const durationSeconds = data.trip.summary.time
-  const distanceMeters = data.trip.summary.length * 1000
-
-  const mins = Math.round(durationSeconds / 60)
-  const durationText = mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} hr ${mins % 60} min`
-  const distanceText = distanceMeters < 1000 ? `${Math.round(distanceMeters)} m` : `${(distanceMeters / 1000).toFixed(1)} km`
-
-  return { polyline: decodedPolyline, durationText, distanceText, durationSeconds, distanceMeters }
+async function calculateRoute(orig: LatLng, dest: LatLng): Promise<RouteResult> {
+  const nav = await getNavigatr()
+  return nav.route({ origin: orig, destination: dest })
 }
 
 function calculateHeading(from: LatLng, to: LatLng): number {

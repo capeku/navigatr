@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { RouteResult, LatLng } from '@navigatr/web'
 
+const { getNavigatr } = useNavigatr()
+
 const route = ref<RouteResult | null>(null)
 const loading = ref(true)
 const error = ref('')
@@ -14,72 +16,18 @@ async function fetchRoute() {
   error.value = ''
 
   try {
-    const res = await fetch('/api/route', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        locations: [
-          { lon: ORIGIN.lng, lat: ORIGIN.lat, type: 'break' },
-          { lon: DESTINATION.lng, lat: DESTINATION.lat, type: 'break' }
-        ],
-        costing: 'auto',
-        directions_options: { units: 'km' }
-      })
+    const nav = await getNavigatr()
+    route.value = await nav.route({
+      origin: ORIGIN,
+      destination: DESTINATION,
+      maneuvers: true
     })
-
-    if (!res.ok) throw new Error('Routing failed')
-
-    const data = await res.json()
-    const polyline = decodePolyline(data.trip.legs[0].shape)
-
-    route.value = {
-      durationSeconds: data.trip.summary.time,
-      durationText: formatDuration(data.trip.summary.time),
-      distanceMeters: data.trip.summary.length * 1000,
-      distanceText: formatDistance(data.trip.summary.length * 1000),
-      polyline,
-      maneuvers: data.trip.legs[0].maneuvers?.map((m: any) => ({
-        instruction: m.instruction,
-        type: m.type,
-        distanceMeters: m.length * 1000,
-        distanceText: formatDistance(m.length * 1000),
-        durationSeconds: m.time,
-        durationText: formatDuration(m.time),
-        startPoint: polyline[m.begin_shape_index] || polyline[0]
-      }))
-    }
   } catch (e) {
     error.value = 'Failed to load route'
     console.error(e)
   } finally {
     loading.value = false
   }
-}
-
-function decodePolyline(encoded: string): LatLng[] {
-  const coords: LatLng[] = []
-  let index = 0, lat = 0, lng = 0
-  while (index < encoded.length) {
-    let shift = 0, result = 0, byte: number
-    do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5 } while (byte >= 0x20)
-    lat += result & 1 ? ~(result >> 1) : result >> 1
-    shift = 0; result = 0
-    do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5 } while (byte >= 0x20)
-    lng += result & 1 ? ~(result >> 1) : result >> 1
-    coords.push({ lat: lat / 1e6, lng: lng / 1e6 })
-  }
-  return coords
-}
-
-function formatDuration(seconds: number): string {
-  const mins = Math.round(seconds / 60)
-  if (mins < 60) return `${mins} min`
-  const hrs = Math.floor(mins / 60), m = mins % 60
-  return m ? `${hrs} hr ${m} min` : `${hrs} hr`
-}
-
-function formatDistance(meters: number): string {
-  return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(1)} km`
 }
 
 function handleNavigationEvent(event: any) {

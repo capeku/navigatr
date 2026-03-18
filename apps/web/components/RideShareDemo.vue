@@ -1,14 +1,7 @@
 <script setup lang="ts">
-import type { LatLng, RouteResult, GeocodeResult } from '@navigatr/web'
+import type { LatLng, RouteResult, GeocodeResult, AutocompleteResult } from '@navigatr/web'
 
-interface AutocompleteResult {
-  lat: number
-  lng: number
-  displayName: string
-  name: string
-  city?: string
-  country?: string
-}
+const { getNavigatr } = useNavigatr()
 
 const pickupInput = ref('Accra Mall')
 const destinationInput = ref('')
@@ -25,61 +18,6 @@ const isNavigating = ref(false)
 const navigationProgress = ref(0)
 const hasArrived = ref(false)
 
-function formatDuration(seconds: number): string {
-  const mins = Math.round(seconds / 60)
-  if (mins < 60) return `${mins} min`
-  const hrs = Math.floor(mins / 60), m = mins % 60
-  return m ? `${hrs} hr ${m} min` : `${hrs} hr`
-}
-
-function formatDistance(meters: number): string {
-  return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(1)} km`
-}
-
-async function geocode(address: string): Promise<GeocodeResult> {
-  const res = await fetch(`/api/geocode?q=${encodeURIComponent(address)}`)
-  if (!res.ok) throw new Error('Geocoding failed')
-  const data = await res.json()
-  if (!data.length) throw new Error('No results')
-  return {
-    lat: parseFloat(data[0].lat),
-    lng: parseFloat(data[0].lon),
-    displayName: data[0].display_name
-  }
-}
-
-async function routeViaProxy(orig: LatLng, dest: LatLng) {
-  const res = await fetch('/api/route', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      locations: [
-        { lon: orig.lng, lat: orig.lat, type: 'break' },
-        { lon: dest.lng, lat: dest.lat, type: 'break' }
-      ],
-      costing: 'auto',
-      directions_options: { units: 'km' }
-    })
-  })
-  if (!res.ok) throw new Error('Routing failed')
-  return res.json()
-}
-
-function decodePolyline(encoded: string): LatLng[] {
-  const coords: LatLng[] = []
-  let index = 0, lat = 0, lng = 0
-  while (index < encoded.length) {
-    let shift = 0, result = 0, byte: number
-    do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5 } while (byte >= 0x20)
-    lat += result & 1 ? ~(result >> 1) : result >> 1
-    shift = 0; result = 0
-    do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5 } while (byte >= 0x20)
-    lng += result & 1 ? ~(result >> 1) : result >> 1
-    coords.push({ lat: lat / 1e6, lng: lng / 1e6 })
-  }
-  return coords
-}
-
 function handlePickupSelect(result: AutocompleteResult) {
   pickup.value = { lat: result.lat, lng: result.lng, displayName: result.displayName }
   pickupInput.value = result.name || result.displayName.split(',')[0]
@@ -94,10 +32,9 @@ function handleDestinationSelect(result: AutocompleteResult) {
 
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   try {
-    const res = await fetch(`/api/reverse-geocode?lat=${lat}&lng=${lng}`)
-    if (!res.ok) return 'Dropped pin'
-    const data = await res.json()
-    return data.address?.road || data.address?.suburb || data.display_name?.split(',')[0] || 'Dropped pin'
+    const nav = await getNavigatr()
+    const result = await nav.reverseGeocode({ lat, lng })
+    return result.displayName.split(',')[0] || 'Dropped pin'
   } catch {
     return 'Dropped pin'
   }
@@ -128,7 +65,8 @@ async function handleDestinationDrag(location: { lat: number; lng: number }) {
 async function handlePickupSearch() {
   if (!pickupInput.value.trim()) return
   try {
-    pickup.value = await geocode(pickupInput.value)
+    const nav = await getNavigatr()
+    pickup.value = await nav.geocode({ address: pickupInput.value })
     if (destination.value) calculateRoute()
   } catch (e) {
     console.error(e)
@@ -138,7 +76,8 @@ async function handlePickupSearch() {
 async function handleDestinationSearch() {
   if (!destinationInput.value.trim()) return
   try {
-    destination.value = await geocode(destinationInput.value)
+    const nav = await getNavigatr()
+    destination.value = await nav.geocode({ address: destinationInput.value })
     if (pickup.value) calculateRoute()
   } catch (e) {
     console.error(e)
@@ -150,19 +89,14 @@ async function calculateRoute() {
 
   loading.value = true
   try {
-    const data = await routeViaProxy(pickup.value, destination.value)
-    const decodedPolyline = decodePolyline(data.trip.legs[0].shape)
-    const durationSeconds = data.trip.summary.time
-    const distanceMeters = data.trip.summary.length * 1000
+    const nav = await getNavigatr()
+    const result = await nav.route({
+      origin: pickup.value,
+      destination: destination.value
+    })
 
-    routeResult.value = {
-      durationSeconds,
-      durationText: formatDuration(durationSeconds),
-      distanceMeters,
-      distanceText: formatDistance(distanceMeters),
-      polyline: decodedPolyline
-    }
-    polyline.value = decodedPolyline
+    routeResult.value = result
+    polyline.value = result.polyline
   } catch (e) {
     console.error(e)
   } finally {
@@ -204,7 +138,8 @@ function resetRide() {
 
 onMounted(async () => {
   try {
-    pickup.value = await geocode(pickupInput.value)
+    const nav = await getNavigatr()
+    pickup.value = await nav.geocode({ address: pickupInput.value })
   } catch (e) {
     console.error(e)
   }

@@ -1,17 +1,11 @@
 <script setup lang="ts">
-interface AutocompleteResult {
-  lat: number
-  lng: number
-  displayName: string
-  name: string
-  city?: string
-  country?: string
-}
+import type { AutocompleteResult } from '@navigatr/web'
+
+const { getNavigatr } = useNavigatr()
 
 const props = defineProps<{
   modelValue: string
   placeholder?: string
-  countryCode?: string
 }>()
 
 const emit = defineEmits<{
@@ -51,16 +45,10 @@ watch(inputValue, (val) => {
   debounceTimer = setTimeout(async () => {
     isLoading.value = true
     try {
-      const params = new URLSearchParams({ q: val, limit: '5' })
-      if (props.countryCode) {
-        params.set('countrycode', props.countryCode)
-      }
-      const res = await fetch(`/api/autocomplete?${params}`)
-      if (res.ok) {
-        suggestions.value = await res.json()
-        isOpen.value = suggestions.value.length > 0
-        activeIndex.value = -1
-      }
+      const nav = await getNavigatr()
+      suggestions.value = await nav.autocomplete({ query: val, limit: 5 })
+      isOpen.value = suggestions.value.length > 0
+      activeIndex.value = -1
     } catch {
       suggestions.value = []
     } finally {
@@ -113,16 +101,10 @@ async function triggerSearch() {
 
   isLoading.value = true
   try {
-    const params = new URLSearchParams({ q: inputValue.value, limit: '5' })
-    if (props.countryCode) {
-      params.set('countrycode', props.countryCode)
-    }
-    const res = await fetch(`/api/autocomplete?${params}`)
-    if (res.ok) {
-      suggestions.value = await res.json()
-      isOpen.value = suggestions.value.length > 0
-      activeIndex.value = -1
-    }
+    const nav = await getNavigatr()
+    suggestions.value = await nav.autocomplete({ query: inputValue.value, limit: 5 })
+    isOpen.value = suggestions.value.length > 0
+    activeIndex.value = -1
   } catch {
     suggestions.value = []
   } finally {
