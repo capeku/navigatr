@@ -1,11 +1,27 @@
-import L from 'leaflet'
-import type { LatLng } from '@navigatr/core'
-import type { MapConfig, MarkerOptions, DriverMarkerOptions, NavigatrMap, NavigatrMarker, RouteStyleOptions } from './types'
+import maplibregl from 'maplibre-gl'
+import nearestPointOnLine from '@turf/nearest-point-on-line'
+import bearing from '@turf/bearing'
+import distance from '@turf/distance'
+import along from '@turf/along'
+import { lineString, point } from '@turf/helpers'
+import type { LatLng, RouteResult, Maneuver } from '@navigatr/core'
+import { injectMapLibreStyles } from './styles'
+import type {
+  MapConfig,
+  MarkerOptions,
+  DriverMarkerOptions,
+  NavigatrMap,
+  NavigatrMarker,
+  RouteStyleOptions,
+  NavigationEventCallback,
+  NavigationEvent
+} from './types'
 
-const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty'
 const ROUTE_COLOR = '#00FF94'
 const ROUTE_WEIGHT = 4
+const OFF_ROUTE_THRESHOLD_METERS = 50
+const TURN_ZOOM_THRESHOLD_METERS = 200
 
 const DRIVER_ICONS: Record<string, string> = {
   car: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#00FF94"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>`,
@@ -14,112 +30,403 @@ const DRIVER_ICONS: Record<string, string> = {
   default: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#00FF94"><circle cx="12" cy="12" r="8"/></svg>`
 }
 
-function createDriverIcon(type: string = 'default', heading: number = 0): L.DivIcon {
+interface NavigationState {
+  route: RouteResult
+  polylineGeoJSON: GeoJSON.Feature<GeoJSON.LineString>
+  totalRouteLengthKm: number
+  isNavigating: boolean
+}
+
+function createDriverIconElement(type: string = 'default', heading: number = 0): HTMLDivElement {
   const svg = DRIVER_ICONS[type] || DRIVER_ICONS.default
-  return L.divIcon({
-    html: `<div style="transform: rotate(${heading}deg); display: flex; align-items: center; justify-content: center;">${svg}</div>`,
-    className: 'navigatr-driver-icon',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16]
-  })
+  const el = document.createElement('div')
+  el.innerHTML = svg
+  el.style.transform = `rotate(${heading}deg)`
+  el.style.display = 'flex'
+  el.style.alignItems = 'center'
+  el.style.justifyContent = 'center'
+  el.className = 'navigatr-driver-icon'
+  return el
+}
+
+function toGeoJSONCoords(polyline: LatLng[]): [number, number][] {
+  return polyline.map((p) => [p.lng, p.lat])
+}
+
+function findDistanceAlongRoute(
+  routeLine: GeoJSON.Feature<GeoJSON.LineString>,
+  position: LatLng
+): number {
+  const posPoint = point([position.lng, position.lat])
+  const snapped = nearestPointOnLine(routeLine, posPoint)
+  return snapped.properties.location ?? 0
+}
+
+function findNearestUpcomingManeuver(
+  currentDistanceKm: number,
+  route: RouteResult,
+  polylineGeoJSON: GeoJSON.Feature<GeoJSON.LineString>
+): { maneuver: Maneuver; distanceMeters: number } | null {
+  if (!route.maneuvers || route.maneuvers.length === 0) return null
+
+  for (const maneuver of route.maneuvers) {
+    const maneuverDistanceKm = findDistanceAlongRoute(polylineGeoJSON, maneuver.startPoint)
+    const distanceToManeuver = (maneuverDistanceKm - currentDistanceKm) * 1000
+
+    if (distanceToManeuver > 0 && distanceToManeuver < 500) {
+      return { maneuver, distanceMeters: distanceToManeuver }
+    }
+  }
+
+  return null
+}
+
+function calculateRouteLength(coords: [number, number][]): number {
+  let total = 0
+  for (let i = 0; i < coords.length - 1; i++) {
+    total += distance(point(coords[i]), point(coords[i + 1]), { units: 'kilometers' })
+  }
+  return total
 }
 
 export function createMap(config: MapConfig): NavigatrMap {
-  const map = L.map(config.container).setView(
-    [config.center.lat, config.center.lng],
-    config.zoom ?? 13
-  )
+  injectMapLibreStyles()
 
-  L.tileLayer(OSM_TILE_URL, {
-    attribution: OSM_ATTRIBUTION
-  }).addTo(map)
+  const map = new maplibregl.Map({
+    container: config.container,
+    style: OPENFREEMAP_STYLE,
+    center: [config.center.lng, config.center.lat],
+    zoom: config.zoom ?? 13,
+    pitch: config.pitch ?? 0,
+    bearing: config.bearing ?? 0
+  })
 
-  let currentRoute: L.Polyline | null = null
-  let driverMarker: L.Marker | null = null
+  const markers: Map<string, maplibregl.Marker> = new Map()
+  let markerIdCounter = 0
+  let driverMarker: maplibregl.Marker | null = null
+  let driverIconType: string = 'default'
+  let navigationState: NavigationState | null = null
+  const eventListeners: Set<NavigationEventCallback> = new Set()
+  let pendingRouteData: { coordinates: [number, number][]; style?: RouteStyleOptions } | null = null
+  let pendingFitBounds: maplibregl.LngLatBounds | null = null
+  let isMapLoaded = false
+
+  function emitEvent(event: NavigationEvent): void {
+    eventListeners.forEach((cb) => cb(event))
+  }
+
+  function addRouteLayer(): void {
+    if (map.getSource('route')) return
+
+    map.addSource('route', {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: [] }
+      }
+    })
+
+    map.addLayer({
+      id: 'route-line',
+      type: 'line',
+      source: 'route',
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round'
+      },
+      paint: {
+        'line-color': ROUTE_COLOR,
+        'line-width': ROUTE_WEIGHT
+      }
+    })
+
+    // Apply pending route data
+    if (pendingRouteData) {
+      const source = map.getSource('route') as maplibregl.GeoJSONSource
+      source.setData({
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: pendingRouteData.coordinates }
+      })
+      updateRouteStyle(pendingRouteData.style)
+      pendingRouteData = null
+    }
+
+    // Apply pending fit bounds
+    if (pendingFitBounds) {
+      map.fitBounds(pendingFitBounds, {
+        padding: 50,
+        pitch: 0,
+        bearing: 0
+      })
+      pendingFitBounds = null
+    }
+
+    isMapLoaded = true
+  }
+
+  function updateRouteStyle(style?: RouteStyleOptions): void {
+    if (!map.getLayer('route-line')) return
+
+    if (style?.color) {
+      map.setPaintProperty('route-line', 'line-color', style.color)
+    }
+    if (style?.weight) {
+      map.setPaintProperty('route-line', 'line-width', style.weight)
+    }
+    if (style?.opacity !== undefined) {
+      map.setPaintProperty('route-line', 'line-opacity', style.opacity)
+    }
+  }
+
+  map.on('load', addRouteLayer)
 
   return {
     addMarker(options: MarkerOptions): NavigatrMarker {
-      const marker = L.marker([options.lat, options.lng], {
+      const id = `marker-${markerIdCounter++}`
+
+      const marker = new maplibregl.Marker({
         draggable: options.draggable ?? false
-      }).addTo(map)
+      })
+        .setLngLat([options.lng, options.lat])
+        .addTo(map)
 
       if (options.label) {
-        marker.bindPopup(options.label)
+        marker.setPopup(new maplibregl.Popup().setText(options.label))
       }
 
       if (options.draggable && options.onDragEnd) {
         marker.on('dragend', () => {
-          const pos = marker.getLatLng()
-          options.onDragEnd!({ lat: pos.lat, lng: pos.lng })
+          const lngLat = marker.getLngLat()
+          options.onDragEnd!({ lat: lngLat.lat, lng: lngLat.lng })
         })
       }
 
+      markers.set(id, marker)
+
       return {
         setLatLng(location: LatLng): void {
-          marker.setLatLng([location.lat, location.lng])
+          marker.setLngLat([location.lng, location.lat])
         },
         remove(): void {
-          map.removeLayer(marker)
+          marker.remove()
+          markers.delete(id)
         }
       }
     },
 
     drawRoute(polyline: LatLng[], style?: RouteStyleOptions): void {
-      if (currentRoute) {
-        map.removeLayer(currentRoute)
-      }
+      const coordinates = toGeoJSONCoords(polyline)
 
-      const latLngs = polyline.map((p) => [p.lat, p.lng] as L.LatLngTuple)
-      currentRoute = L.polyline(latLngs, {
-        color: style?.color ?? ROUTE_COLOR,
-        weight: style?.weight ?? ROUTE_WEIGHT,
-        opacity: style?.opacity ?? 1
-      }).addTo(map)
+      const source = map.getSource('route') as maplibregl.GeoJSONSource | undefined
+      if (source) {
+        source.setData({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates }
+        })
+        updateRouteStyle(style)
+      } else {
+        pendingRouteData = { coordinates, style }
+      }
     },
 
     fitRoute(polyline: LatLng[]): void {
       if (polyline.length === 0) return
 
-      const latLngs = polyline.map((p) => [p.lat, p.lng] as L.LatLngTuple)
-      const bounds = L.latLngBounds(latLngs)
-      map.fitBounds(bounds, { padding: [50, 50] })
+      const bounds = new maplibregl.LngLatBounds()
+      polyline.forEach((p) => bounds.extend([p.lng, p.lat]))
+
+      // If map not loaded yet, store for later
+      if (!isMapLoaded) {
+        pendingFitBounds = bounds
+        return
+      }
+
+      map.fitBounds(bounds, {
+        padding: 50,
+        pitch: 0,
+        bearing: 0
+      })
     },
 
     clearRoute(): void {
-      if (currentRoute) {
-        map.removeLayer(currentRoute)
-        currentRoute = null
+      pendingRouteData = null
+      const source = map.getSource('route') as maplibregl.GeoJSONSource
+      if (source) {
+        source.setData({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: [] }
+        })
       }
     },
 
     updateDriverMarker(options: DriverMarkerOptions): void {
-      const icon = createDriverIcon(options.icon, options.heading)
+      const heading = options.heading ?? 0
+      driverIconType = options.icon ?? 'default'
 
       if (driverMarker) {
-        driverMarker.setLatLng([options.lat, options.lng])
-        driverMarker.setIcon(icon)
+        driverMarker.setLngLat([options.lng, options.lat])
+        const el = driverMarker.getElement()
+        el.innerHTML = ''
+        el.appendChild(createDriverIconElement(driverIconType, heading))
       } else {
-        driverMarker = L.marker([options.lat, options.lng], { icon }).addTo(map)
+        const el = createDriverIconElement(driverIconType, heading)
+        driverMarker = new maplibregl.Marker({ element: el })
+          .setLngLat([options.lng, options.lat])
+          .addTo(map)
       }
     },
 
     removeDriverMarker(): void {
       if (driverMarker) {
-        map.removeLayer(driverMarker)
+        driverMarker.remove()
         driverMarker = null
       }
     },
 
     panTo(location: LatLng): void {
-      map.panTo([location.lat, location.lng])
+      map.panTo([location.lng, location.lat])
     },
 
     onClick(callback: (location: LatLng) => void): () => void {
-      const handler = (e: L.LeafletMouseEvent) => {
-        callback({ lat: e.latlng.lat, lng: e.latlng.lng })
+      const handler = (e: maplibregl.MapMouseEvent) => {
+        callback({ lat: e.lngLat.lat, lng: e.lngLat.lng })
       }
       map.on('click', handler)
       return () => map.off('click', handler)
+    },
+
+    startNavigation(route: RouteResult): void {
+      if (route.polyline.length < 2) {
+        throw new Error('Route must have at least 2 points')
+      }
+
+      const coords = toGeoJSONCoords(route.polyline)
+      const polylineGeoJSON = lineString(coords)
+      const totalRouteLengthKm = calculateRouteLength(coords)
+
+      const initialBearing = bearing(point(coords[0]), point(coords[1]))
+
+      navigationState = {
+        route,
+        polylineGeoJSON,
+        totalRouteLengthKm,
+        isNavigating: true
+      }
+
+      // Place driver marker at start
+      const startPoint = route.polyline[0]
+      this.updateDriverMarker({
+        lat: startPoint.lat,
+        lng: startPoint.lng,
+        heading: initialBearing,
+        icon: driverIconType as 'car' | 'bike' | 'walk' | 'default'
+      })
+
+      // Animate camera to navigation view
+      map.easeTo({
+        center: [startPoint.lng, startPoint.lat],
+        zoom: 17,
+        pitch: 60,
+        bearing: initialBearing,
+        duration: 1000
+      })
+
+      emitEvent({ type: 'navigation_started' })
+    },
+
+    updatePosition(position: LatLng): void {
+      if (!navigationState || !navigationState.isNavigating) return
+
+      const posPoint = point([position.lng, position.lat])
+
+      // Snap to route
+      const snapped = nearestPointOnLine(navigationState.polylineGeoJSON, posPoint)
+      const [snappedLng, snappedLat] = snapped.geometry.coordinates
+      const distanceFromRoute = distance(posPoint, snapped, { units: 'meters' })
+
+      // Off route check
+      if (distanceFromRoute > OFF_ROUTE_THRESHOLD_METERS) {
+        emitEvent({ type: 'off_route', distanceMeters: distanceFromRoute })
+      }
+
+      // Current progress along route
+      const currentDistanceKm = snapped.properties.location ?? 0
+      const remainingKm = navigationState.totalRouteLengthKm - currentDistanceKm
+
+      // Arrival check
+      if (remainingKm * 1000 < 20) {
+        emitEvent({ type: 'arrived' })
+        this.stopNavigation()
+        return
+      }
+
+      // Calculate bearing (look 50m ahead)
+      const lookAheadKm = Math.min(currentDistanceKm + 0.05, navigationState.totalRouteLengthKm)
+      const currentPoint = along(navigationState.polylineGeoJSON, currentDistanceKm, { units: 'kilometers' })
+      const lookAheadPoint = along(navigationState.polylineGeoJSON, lookAheadKm, { units: 'kilometers' })
+      const currentBearing = bearing(currentPoint, lookAheadPoint)
+
+      // Update marker
+      this.updateDriverMarker({
+        lat: snappedLat,
+        lng: snappedLng,
+        heading: currentBearing,
+        icon: driverIconType as 'car' | 'bike' | 'walk' | 'default'
+      })
+
+      // Turn anticipation zoom
+      let targetZoom = 17
+      const nearestTurn = findNearestUpcomingManeuver(
+        currentDistanceKm,
+        navigationState.route,
+        navigationState.polylineGeoJSON
+      )
+      if (nearestTurn) {
+        if (nearestTurn.distanceMeters < TURN_ZOOM_THRESHOLD_METERS) {
+          targetZoom = 18
+          emitEvent({
+            type: 'turn_approaching',
+            maneuver: nearestTurn.maneuver,
+            distanceMeters: nearestTurn.distanceMeters
+          })
+        } else {
+          targetZoom = 16
+        }
+      }
+
+      // Animate camera
+      map.easeTo({
+        center: [snappedLng, snappedLat],
+        bearing: currentBearing,
+        pitch: 60,
+        zoom: targetZoom,
+        duration: 300
+      })
+    },
+
+    stopNavigation(): void {
+      if (navigationState) {
+        navigationState.isNavigating = false
+        navigationState = null
+      }
+
+      map.easeTo({
+        pitch: 0,
+        bearing: 0,
+        zoom: 15,
+        duration: 500
+      })
+
+      emitEvent({ type: 'navigation_stopped' })
+    },
+
+    onNavigationEvent(callback: NavigationEventCallback): () => void {
+      eventListeners.add(callback)
+      return () => eventListeners.delete(callback)
     }
   }
 }

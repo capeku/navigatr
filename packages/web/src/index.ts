@@ -14,7 +14,8 @@ export class Navigatr extends NavigatrCore {
   }
 
   /**
-   * Create a Leaflet map in the specified container.
+   * Create a MapLibre GL map in the specified container.
+   * CSS is automatically injected - no external stylesheet needed.
    */
   map(params: MapConfig): NavigatrMap {
     return createMap(params)
@@ -134,5 +135,5 @@ export class Navigatr extends NavigatrCore {
 
 export { RideSession } from './ride'
 export type { RideConfig, RidePhase } from './ride'
-export type { NavigatrMap, NavigatrMarker, MapConfig, MarkerOptions, DriverMarkerOptions, LocationUpdateCallback, RouteStyleOptions } from './types'
+export type { NavigatrMap, NavigatrMarker, MapConfig, MarkerOptions, DriverMarkerOptions, LocationUpdateCallback, RouteStyleOptions, NavigationEvent, NavigationEventCallback } from './types'
 export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig } from '@navigatr/core'

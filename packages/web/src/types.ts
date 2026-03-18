@@ -1,9 +1,11 @@
-import type { LatLng } from '@navigatr/core'
+import type { LatLng, Maneuver, RouteResult } from '@navigatr/core'
 
 export interface MapConfig {
   container: string
   center: LatLng
   zoom?: number
+  pitch?: number
+  bearing?: number
 }
 
 export interface MarkerOptions {
@@ -34,6 +36,16 @@ export interface NavigatrMarker {
   remove(): void
 }
 
+// Navigation Events
+export type NavigationEvent =
+  | { type: 'turn_approaching'; maneuver: Maneuver; distanceMeters: number }
+  | { type: 'off_route'; distanceMeters: number }
+  | { type: 'arrived' }
+  | { type: 'navigation_started' }
+  | { type: 'navigation_stopped' }
+
+export type NavigationEventCallback = (event: NavigationEvent) => void
+
 export interface NavigatrMap {
   addMarker(options: MarkerOptions): NavigatrMarker
   drawRoute(polyline: LatLng[], style?: RouteStyleOptions): void
@@ -43,4 +55,10 @@ export interface NavigatrMap {
   removeDriverMarker(): void
   panTo(location: LatLng): void
   onClick(callback: (location: LatLng) => void): () => void
+
+  // Navigation methods
+  startNavigation(route: RouteResult): void
+  updatePosition(position: LatLng): void
+  stopNavigation(): void
+  onNavigationEvent(callback: NavigationEventCallback): () => void
 }
