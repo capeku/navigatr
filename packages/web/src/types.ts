@@ -61,4 +61,7 @@ export interface NavigatrMap {
   updatePosition(position: LatLng): void
   stopNavigation(): void
   onNavigationEvent(callback: NavigationEventCallback): () => void
+
+  // Route progress visualization
+  updateTraveledRoute(polyline: LatLng[], currentIndex: number): void
 }

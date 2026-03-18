@@ -115,9 +115,10 @@ const destinationCoords = ref<LatLng | null>(null)
 const isTracking = ref(false)
 const trackingProgress = ref(0)
 const currentETA = ref('')
+const simulationSpeed = ref(60) // km/h
 let rideSession: RideSession | null = null
 let simulationInterval: ReturnType<typeof setInterval> | null = null
-let currentPolylineIndex = 0
+let floatIndex = 0
 
 function log(message: string, type: 'info' | 'success' | 'error' = 'info') {
   const prefix = type === 'success' ? '✓' : type === 'error' ? '✗' : '→'
@@ -413,11 +414,15 @@ function calculateHeading(from: LatLng, to: LatLng): number {
   return ((Math.atan2(x, y) * 180 / Math.PI) + 360) % 360
 }
 
-// Get heading to next point in polyline for smooth car rotation
-function getHeadingAtIndex(index: number): number {
-  if (polyline.value.length < 2) return 0
-  const nextIndex = Math.min(index + 1, polyline.value.length - 1)
-  return calculateHeading(polyline.value[index], polyline.value[nextIndex])
+function haversineDistance(p1: LatLng, p2: LatLng): number {
+  const R = 6371000 // Earth radius in meters
+  const lat1 = p1.lat * Math.PI / 180
+  const lat2 = p2.lat * Math.PI / 180
+  const dLat = (p2.lat - p1.lat) * Math.PI / 180
+  const dLng = (p2.lng - p1.lng) * Math.PI / 180
+
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
 async function startTracking() {
@@ -428,7 +433,7 @@ async function startTracking() {
 
   isTracking.value = true
   trackingProgress.value = 0
-  currentPolylineIndex = 0
+  floatIndex = 0
 
   log('Starting driver simulation with RideSession...', 'info')
   log(`Creating ride: nav.createRide({ pickup, destination })`)
@@ -448,9 +453,7 @@ async function startTracking() {
       log(`Ride phase changed: ${phase}`, 'success')
     },
     onDriverMove: (_location) => {
-      // Update progress based on polyline position
-      const total = polyline.value.length
-      trackingProgress.value = (currentPolylineIndex / total) * 100
+      // Progress is updated in the simulation interval
     }
   })
 
@@ -459,18 +462,32 @@ async function startTracking() {
   await rideSession.startPickup(startPos)
   log(`Driver started at: { lat: ${startPos.lat.toFixed(6)}, lng: ${startPos.lng.toFixed(6)} }`)
 
-  // Simulate driver movement along the route using intervals
-  // This mimics real GPS updates coming from a backend
-  const totalPoints = polyline.value.length
-  const updateIntervalMs = 500 // Update every 500ms for smooth simulation
-  const pointsPerUpdate = 3 // Move through multiple points per update
+  // Calculate simulation parameters based on speed (matching NavigationDemo.vue)
+  const poly = polyline.value
+  const totalPoints = poly.length
+  const updateIntervalMs = 100 // Update every 100ms for smooth movement
+  const speedMps = (simulationSpeed.value * 1000) / 3600 // Convert km/h to m/s
+  const distancePerUpdate = speedMps * (updateIntervalMs / 1000) // meters per update
+
+  // Calculate average distance between polyline points
+  let totalDistance = 0
+  for (let i = 0; i < poly.length - 1; i++) {
+    totalDistance += haversineDistance(poly[i], poly[i + 1])
+  }
+  const avgPointDistance = totalDistance / (poly.length - 1)
+
+  // How many points to advance per update
+  const pointsPerUpdate = Math.max(1, distancePerUpdate / avgPointDistance)
 
   simulationInterval = setInterval(async () => {
-    currentPolylineIndex += pointsPerUpdate
+    floatIndex += pointsPerUpdate
 
-    if (currentPolylineIndex >= totalPoints - 1) {
+    if (floatIndex >= totalPoints - 1) {
       // Arrived at destination
-      currentPolylineIndex = totalPoints - 1
+      floatIndex = totalPoints - 1
+      const finalPos = poly[totalPoints - 1]
+      map?.updateDriverMarker({ ...finalPos, heading: 0, icon: 'car' })
+      map?.updateTraveledRoute(poly, totalPoints - 1)
       stopTracking()
       trackingProgress.value = 100
       currentETA.value = 'Arrived!'
@@ -479,15 +496,27 @@ async function startTracking() {
       return
     }
 
-    const currentPos = polyline.value[currentPolylineIndex]
-    const heading = getHeadingAtIndex(currentPolylineIndex)
+    // Interpolate between points for smoother movement
+    const baseIndex = Math.floor(floatIndex)
+    const fraction = floatIndex - baseIndex
+    const p1 = poly[baseIndex]
+    const p2 = poly[Math.min(baseIndex + 1, totalPoints - 1)]
+
+    const interpolatedPos: LatLng = {
+      lat: p1.lat + (p2.lat - p1.lat) * fraction,
+      lng: p1.lng + (p2.lng - p1.lng) * fraction
+    }
+
+    const heading = calculateHeading(p1, p2)
+    trackingProgress.value = Math.round((floatIndex / (totalPoints - 1)) * 100)
 
     // Update driver location through RideSession
-    // This will: update marker, recalculate route, update ETA
     if (rideSession) {
-      await rideSession.updateDriverLocation(currentPos)
+      await rideSession.updateDriverLocation(interpolatedPos)
       // Also update heading for smooth car rotation
-      map?.updateDriverMarker({ ...currentPos, heading, icon: 'car' })
+      map?.updateDriverMarker({ ...interpolatedPos, heading, icon: 'car' })
+      // Grey out the traveled portion of the route
+      map?.updateTraveledRoute(poly, baseIndex)
     }
   }, updateIntervalMs)
 }
@@ -500,12 +529,16 @@ function stopTracking() {
   isTracking.value = false
   trackingProgress.value = 0
   currentETA.value = ''
-  currentPolylineIndex = 0
+  floatIndex = 0
   if (rideSession) {
     rideSession.complete()
     rideSession = null
   }
-  if (map) map.removeDriverMarker()
+  if (map) {
+    map.removeDriverMarker()
+    // Clear the traveled route overlay
+    map.updateTraveledRoute([], 0)
+  }
 }
 
 async function handlePinDrop(location: LatLng) {

@@ -19,6 +19,7 @@ import type {
 
 const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty'
 const ROUTE_COLOR = '#00FF94'
+const ROUTE_TRAVELED_COLOR = '#888888'
 const ROUTE_WEIGHT = 4
 const OFF_ROUTE_THRESHOLD_METERS = 50
 const TURN_ZOOM_THRESHOLD_METERS = 200
@@ -137,6 +138,30 @@ export function createMap(config: MapConfig): NavigatrMap {
       },
       paint: {
         'line-color': ROUTE_COLOR,
+        'line-width': ROUTE_WEIGHT
+      }
+    })
+
+    // Add traveled route layer (grey overlay for passed sections)
+    map.addSource('route-traveled', {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: [] }
+      }
+    })
+
+    map.addLayer({
+      id: 'route-traveled-line',
+      type: 'line',
+      source: 'route-traveled',
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round'
+      },
+      paint: {
+        'line-color': ROUTE_TRAVELED_COLOR,
         'line-width': ROUTE_WEIGHT
       }
     })
@@ -261,6 +286,14 @@ export function createMap(config: MapConfig): NavigatrMap {
           geometry: { type: 'LineString', coordinates: [] }
         })
       }
+      const traveledSource = map.getSource('route-traveled') as maplibregl.GeoJSONSource
+      if (traveledSource) {
+        traveledSource.setData({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: [] }
+        })
+      }
     },
 
     updateDriverMarker(options: DriverMarkerOptions): void {
@@ -357,6 +390,22 @@ export function createMap(config: MapConfig): NavigatrMap {
       const currentDistanceKm = snapped.properties.location ?? 0
       const remainingKm = navigationState.totalRouteLengthKm - currentDistanceKm
 
+      // Update traveled portion of route (grey out passed sections)
+      const segmentIndex = snapped.properties.index ?? 0
+      const routeCoords = navigationState.polylineGeoJSON.geometry.coordinates
+      const traveledCoords = routeCoords.slice(0, segmentIndex + 1)
+      // Add the current snapped position as the end of traveled path
+      traveledCoords.push([snappedLng, snappedLat])
+
+      const traveledSource = map.getSource('route-traveled') as maplibregl.GeoJSONSource | undefined
+      if (traveledSource) {
+        traveledSource.setData({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: traveledCoords }
+        })
+      }
+
       // Arrival check
       if (remainingKm * 1000 < 20) {
         emitEvent({ type: 'arrived' })
@@ -414,6 +463,16 @@ export function createMap(config: MapConfig): NavigatrMap {
         navigationState = null
       }
 
+      // Clear traveled route
+      const traveledSource = map.getSource('route-traveled') as maplibregl.GeoJSONSource | undefined
+      if (traveledSource) {
+        traveledSource.setData({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: [] }
+        })
+      }
+
       map.easeTo({
         pitch: 0,
         bearing: 0,
@@ -427,6 +486,22 @@ export function createMap(config: MapConfig): NavigatrMap {
     onNavigationEvent(callback: NavigationEventCallback): () => void {
       eventListeners.add(callback)
       return () => eventListeners.delete(callback)
+    },
+
+    updateTraveledRoute(polyline: LatLng[], currentIndex: number): void {
+      const traveledSource = map.getSource('route-traveled') as maplibregl.GeoJSONSource | undefined
+      if (!traveledSource || polyline.length === 0) return
+
+      // Get coordinates from start to current position
+      const traveledCoords = polyline.slice(0, currentIndex + 1).map((p) => [p.lng, p.lat] as [number, number])
+
+      if (traveledCoords.length > 0) {
+        traveledSource.setData({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: traveledCoords }
+        })
+      }
     }
   }
 }
