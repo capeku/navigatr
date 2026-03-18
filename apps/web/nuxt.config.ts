@@ -2,6 +2,10 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: false },
   ssr: false,
+  modules: ['@nuxtjs/tailwindcss'],
+  tailwindcss: {
+    configPath: 'tailwind.config.js'
+  },
   app: {
     head: {
       title: 'Navigatr — Open Source Maps SDK',
