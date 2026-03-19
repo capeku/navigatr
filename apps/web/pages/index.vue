@@ -1,6 +1,54 @@
 <script setup lang="ts">
 const email = ref("");
 
+const limitations = [
+  {
+    issue: "No caching layer",
+    detail: "Same address queried twice = two API calls",
+    status: "planned",
+    solution: "Built-in memoization coming in v1.1",
+  },
+  {
+    issue: "Single point of failure",
+    detail: "Default services have no fallback URLs",
+    status: "planned",
+    solution: "Automatic failover to backup servers",
+  },
+  {
+    issue: "No offline support",
+    detail: "Requires internet for all operations",
+    status: "exploring",
+    solution: "Service worker + cached tiles",
+  },
+  {
+    issue: "Limited error handling",
+    detail: "Rate limits can fail silently",
+    status: "planned",
+    solution: "Retry logic with exponential backoff",
+  },
+];
+
+const roadmap = [
+  {
+    version: "v1.1",
+    title: "Reliability",
+    items: ["Geocode caching", "Fallback URLs", "Retry logic", "Better errors"],
+    status: "in-progress",
+  },
+  {
+    version: "v1.2",
+    title: "Performance",
+    items: ["Tree-shaking", "Lazy loading", "Bundle analyzer", "Smaller footprint"],
+    status: "planned",
+  },
+  {
+    version: "v2.0",
+    title: "Navigatr Server",
+    items: ["Self-hosted package", "Docker one-liner", "All services bundled", "Regional data"],
+    status: "planned",
+  },
+];
+
 const features = [
   {
     topic: "Geocoding",
@@ -163,5 +211,209 @@ function handleSignup() {
         <RideShareDemo />
       </div>
     </div>
+
+    <!-- Transparency Section -->
+    <section class="mt-24 pt-16 border-t border-gray-200">
+      <div class="text-center mb-12">
+        <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
+          We believe in transparency
+        </h2>
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+          Navigatr is a young project. Here's what we're still working on and
+          where we're headed.
+        </p>
+      </div>
+
+      <!-- Current Limitations -->
+      <div class="mb-16">
+        <h3 class="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+          <svg
+            class="w-5 h-5 text-amber-500"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+            />
+          </svg>
+          Current Limitations
+        </h3>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div
+            v-for="item in limitations"
+            :key="item.issue"
+            class="bg-gray-50 rounded-lg p-4"
+          >
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="font-semibold text-gray-900">{{ item.issue }}</p>
+                <p class="text-sm text-gray-600 mt-1">{{ item.detail }}</p>
+              </div>
+              <span
+                :class="
+                  item.status === 'planned'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-600'
+                "
+                class="text-xs font-medium px-2 py-1 rounded-full shrink-0"
+              >
+                {{ item.status === "planned" ? "Fix planned" : "Exploring" }}
+              </span>
+            </div>
+            <p class="text-sm text-accent mt-2">{{ item.solution }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Roadmap -->
+      <div class="mb-16">
+        <h3 class="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+          <svg
+            class="w-5 h-5 text-accent"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+            />
+          </svg>
+          Roadmap
+        </h3>
+        <div class="grid md:grid-cols-3 gap-6">
+          <div
+            v-for="release in roadmap"
+            :key="release.version"
+            class="border border-gray-200 rounded-lg p-5"
+            :class="
+              release.status === 'in-progress' ? 'border-accent bg-accent/5' : ''
+            "
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-lg font-bold text-gray-900">{{
+                release.version
+              }}</span>
+              <span
+                v-if="release.status === 'in-progress'"
+                class="text-xs font-medium px-2 py-0.5 rounded-full bg-accent text-black"
+              >
+                In Progress
+              </span>
+            </div>
+            <p class="font-semibold text-gray-700 mb-3">{{ release.title }}</p>
+            <ul class="space-y-1">
+              <li
+                v-for="item in release.items"
+                :key="item"
+                class="text-sm text-gray-600 flex items-center gap-2"
+              >
+                <span class="w-1 h-1 bg-gray-400 rounded-full"></span>
+                {{ item }}
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigatr Cloud -->
+      <div class="bg-gradient-to-br from-purple-50 via-white to-accent/10 rounded-2xl p-8 md:p-12 border border-purple-100">
+        <div class="flex flex-col lg:flex-row items-center gap-10">
+          <!-- Left: Content -->
+          <div class="flex-1 text-center lg:text-left">
+            <div class="inline-flex items-center gap-2 mb-4">
+              <span class="text-sm font-semibold px-3 py-1 rounded-full bg-purple-100 text-purple-700">Coming Soon</span>
+            </div>
+            <h3 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Navigatr Cloud
+            </h3>
+            <p class="text-lg md:text-xl text-gray-600 mb-8 leading-relaxed">
+              Managed infrastructure with <span class="font-semibold text-gray-900">capacity-based pricing</span>. Pay for throughput (requests per second), not per request. No surprises, predictable costs.
+            </p>
+            <div class="grid sm:grid-cols-3 gap-4 mb-8">
+              <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center mb-3">
+                  <svg class="w-5 h-5 text-accent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7" />
+                  </svg>
+                </div>
+                <p class="font-semibold text-gray-900">Dedicated Instances</p>
+                <p class="text-sm text-gray-500">Your own infrastructure</p>
+              </div>
+              <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center mb-3">
+                  <svg class="w-5 h-5 text-accent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                  </svg>
+                </div>
+                <p class="font-semibold text-gray-900">99.9% Uptime SLA</p>
+                <p class="text-sm text-gray-500">Enterprise reliability</p>
+              </div>
+              <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center mb-3">
+                  <svg class="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  </svg>
+                </div>
+                <p class="font-semibold text-gray-900">90% Cheaper</p>
+                <p class="text-sm text-gray-500">vs Google Maps</p>
+              </div>
+            </div>
+            <p class="text-sm text-gray-500">
+              Free tier always available. Self-host anytime with our open source Docker setup.
+            </p>
+          </div>
+          <!-- Right: Illustration -->
+          <div class="flex-shrink-0 w-full lg:w-auto">
+            <div class="relative w-64 h-64 mx-auto">
+              <!-- Server rack illustration -->
+              <div class="absolute inset-0 bg-gradient-to-br from-purple-100 to-accent/20 rounded-2xl"></div>
+              <div class="absolute inset-4 bg-white rounded-xl shadow-lg p-4 flex flex-col gap-3">
+                <!-- Server rows -->
+                <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+                  <div class="w-2 h-2 rounded-full bg-accent animate-pulse"></div>
+                  <div class="flex-1 h-2 bg-gray-200 rounded"></div>
+                  <div class="w-8 h-2 bg-accent/30 rounded"></div>
+                </div>
+                <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+                  <div class="w-2 h-2 rounded-full bg-accent animate-pulse"></div>
+                  <div class="flex-1 h-2 bg-gray-200 rounded"></div>
+                  <div class="w-8 h-2 bg-accent/30 rounded"></div>
+                </div>
+                <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+                  <div class="w-2 h-2 rounded-full bg-accent animate-pulse"></div>
+                  <div class="flex-1 h-2 bg-gray-200 rounded"></div>
+                  <div class="w-8 h-2 bg-accent/30 rounded"></div>
+                </div>
+                <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+                  <div class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></div>
+                  <div class="flex-1 h-2 bg-gray-200 rounded"></div>
+                  <div class="w-8 h-2 bg-purple-200 rounded"></div>
+                </div>
+                <!-- Stats -->
+                <div class="mt-auto pt-2 border-t border-gray-100">
+                  <div class="flex justify-between text-xs">
+                    <span class="text-gray-400">Capacity</span>
+                    <span class="font-mono font-semibold text-accent">50 req/s</span>
+                  </div>
+                  <div class="flex justify-between text-xs mt-1">
+                    <span class="text-gray-400">Status</span>
+                    <span class="font-semibold text-green-500">Healthy</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>

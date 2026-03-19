@@ -54,6 +54,7 @@ console.log(route.distanceText) // "3.2 km"
 
 ## Documentation
 
+- [Architecture](./ARCHITECTURE.md) - How the distributed SDK works, self-hosting guide
 - [Basic Usage](./docs/basic-usage.md) - Getting started with routing and geocoding
 - [Building Ride-Sharing Apps](./docs/ride-sharing.md) - Real-time tracking, ETA updates, driver/rider views
 - [API Reference](./docs/api-reference.md) - Complete API documentation

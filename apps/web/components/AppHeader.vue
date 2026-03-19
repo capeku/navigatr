@@ -13,6 +13,9 @@
       <NuxtLink to="/api" class="text-sm text-gray-900 hover:text-accent transition-colors">
         Documentation
       </NuxtLink>
+      <NuxtLink to="/architecture" class="text-sm text-gray-900 hover:text-accent transition-colors">
+        Architecture
+      </NuxtLink>
       <a
         href="https://github.com/capeku/navigatr"
         target="_blank"
