@@ -1,7 +1,18 @@
 {
   "name": "@navigatr/core",
   "version": "1.0.0",
-  "description": "Pure TypeScript routing and geocoding SDK using Valhalla and Nominatim",
+  "description": "Pure TypeScript routing and geocoding SDK using Valhalla and Nominatim - the open source alternative to Google Maps",
+  "author": "capeku",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/capeku/navigatr.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/capeku/navigatr#readme",
+  "bugs": {
+    "url": "https://github.com/capeku/navigatr/issues"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -27,7 +38,11 @@
     "geocoding",
     "valhalla",
     "nominatim",
-    "openstreetmap"
-  ],
-  "license": "MIT"
+    "openstreetmap",
+    "osm",
+    "directions",
+    "navigation",
+    "google-maps-alternative",
+    "open-source"
+  ]
 }

@@ -1,149 +1,166 @@
 <script setup lang="ts">
-import type { LatLng, RouteResult, GeocodeResult, AutocompleteResult } from '@navigatr/web'
+import type {
+  LatLng,
+  RouteResult,
+  GeocodeResult,
+  AutocompleteResult,
+} from "@navigatr/web";
 
-const { getNavigatr } = useNavigatr()
+const { getNavigatr } = useNavigatr();
 
-const pickupInput = ref('Accra Mall')
-const destinationInput = ref('')
+const pickupInput = ref("Accra Mall");
+const destinationInput = ref("");
 
-const pickup = ref<GeocodeResult | null>(null)
-const destination = ref<GeocodeResult | null>(null)
-const routeResult = ref<RouteResult | null>(null)
-const polyline = ref<LatLng[]>([])
-const loading = ref(false)
+const pickup = ref<GeocodeResult | null>(null);
+const destination = ref<GeocodeResult | null>(null);
+const routeResult = ref<RouteResult | null>(null);
+const polyline = ref<LatLng[]>([]);
+const loading = ref(false);
 
 // Navigation state
-const routeDemoRef = ref<{ startNavigation: () => void, stopNavigation: () => void, isNavigating: Ref<boolean> } | null>(null)
-const isNavigating = ref(false)
-const navigationProgress = ref(0)
-const hasArrived = ref(false)
+const routeDemoRef = ref<{
+  startNavigation: () => void;
+  stopNavigation: () => void;
+  isNavigating: Ref<boolean>;
+} | null>(null);
+const isNavigating = ref(false);
+const navigationProgress = ref(0);
+const hasArrived = ref(false);
 
 function handlePickupSelect(result: AutocompleteResult) {
-  pickup.value = { lat: result.lat, lng: result.lng, displayName: result.displayName }
-  pickupInput.value = result.name || result.displayName.split(',')[0]
-  if (destination.value) calculateRoute()
+  pickup.value = {
+    lat: result.lat,
+    lng: result.lng,
+    displayName: result.displayName,
+  };
+  pickupInput.value = result.name || result.displayName.split(",")[0];
+  if (destination.value) calculateRoute();
 }
 
 function handleDestinationSelect(result: AutocompleteResult) {
-  destination.value = { lat: result.lat, lng: result.lng, displayName: result.displayName }
-  destinationInput.value = result.name || result.displayName.split(',')[0]
-  if (pickup.value) calculateRoute()
+  destination.value = {
+    lat: result.lat,
+    lng: result.lng,
+    displayName: result.displayName,
+  };
+  destinationInput.value = result.name || result.displayName.split(",")[0];
+  if (pickup.value) calculateRoute();
 }
 
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   try {
-    const nav = await getNavigatr()
-    const result = await nav.reverseGeocode({ lat, lng })
-    return result.displayName.split(',')[0] || 'Dropped pin'
+    const nav = await getNavigatr();
+    const result = await nav.reverseGeocode({ lat, lng });
+    return result.displayName.split(",")[0] || "Dropped pin";
   } catch {
-    return 'Dropped pin'
+    return "Dropped pin";
   }
 }
 
 async function handlePickupDrag(location: { lat: number; lng: number }) {
-  pickup.value = { lat: location.lat, lng: location.lng, displayName: '' }
-  pickupInput.value = 'Adjusting...'
+  pickup.value = { lat: location.lat, lng: location.lng, displayName: "" };
+  pickupInput.value = "Adjusting...";
 
-  const name = await reverseGeocode(location.lat, location.lng)
-  pickupInput.value = name
-  pickup.value.displayName = name
+  const name = await reverseGeocode(location.lat, location.lng);
+  pickupInput.value = name;
+  pickup.value.displayName = name;
 
-  if (destination.value) calculateRoute()
+  if (destination.value) calculateRoute();
 }
 
 async function handleDestinationDrag(location: { lat: number; lng: number }) {
-  destination.value = { lat: location.lat, lng: location.lng, displayName: '' }
-  destinationInput.value = 'Adjusting...'
+  destination.value = { lat: location.lat, lng: location.lng, displayName: "" };
+  destinationInput.value = "Adjusting...";
 
-  const name = await reverseGeocode(location.lat, location.lng)
-  destinationInput.value = name
-  destination.value.displayName = name
+  const name = await reverseGeocode(location.lat, location.lng);
+  destinationInput.value = name;
+  destination.value.displayName = name;
 
-  if (pickup.value) calculateRoute()
+  if (pickup.value) calculateRoute();
 }
 
 async function handlePickupSearch() {
-  if (!pickupInput.value.trim()) return
+  if (!pickupInput.value.trim()) return;
   try {
-    const nav = await getNavigatr()
-    pickup.value = await nav.geocode({ address: pickupInput.value })
-    if (destination.value) calculateRoute()
+    const nav = await getNavigatr();
+    pickup.value = await nav.geocode({ address: pickupInput.value });
+    if (destination.value) calculateRoute();
   } catch (e) {
-    console.error(e)
+    console.error(e);
   }
 }
 
 async function handleDestinationSearch() {
-  if (!destinationInput.value.trim()) return
+  if (!destinationInput.value.trim()) return;
   try {
-    const nav = await getNavigatr()
-    destination.value = await nav.geocode({ address: destinationInput.value })
-    if (pickup.value) calculateRoute()
+    const nav = await getNavigatr();
+    destination.value = await nav.geocode({ address: destinationInput.value });
+    if (pickup.value) calculateRoute();
   } catch (e) {
-    console.error(e)
+    console.error(e);
   }
 }
 
 async function calculateRoute() {
-  if (!pickup.value || !destination.value) return
+  if (!pickup.value || !destination.value) return;
 
-  loading.value = true
+  loading.value = true;
   try {
-    const nav = await getNavigatr()
+    const nav = await getNavigatr();
     const result = await nav.route({
       origin: pickup.value,
-      destination: destination.value
-    })
+      destination: destination.value,
+    });
 
-    routeResult.value = result
-    polyline.value = result.polyline
+    routeResult.value = result;
+    polyline.value = result.polyline;
   } catch (e) {
-    console.error(e)
+    console.error(e);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
 function startRide() {
   if (routeDemoRef.value) {
-    isNavigating.value = true
-    hasArrived.value = false
-    navigationProgress.value = 0
-    routeDemoRef.value.startNavigation()
+    isNavigating.value = true;
+    hasArrived.value = false;
+    navigationProgress.value = 0;
+    routeDemoRef.value.startNavigation();
   }
 }
 
 function cancelRide() {
   if (routeDemoRef.value) {
-    routeDemoRef.value.stopNavigation()
-    isNavigating.value = false
-    hasArrived.value = false
-    navigationProgress.value = 0
+    routeDemoRef.value.stopNavigation();
+    isNavigating.value = false;
+    hasArrived.value = false;
+    navigationProgress.value = 0;
   }
 }
 
 function handleNavigationProgress(progress: number) {
-  navigationProgress.value = progress
+  navigationProgress.value = progress;
 }
 
 function handleNavigationEnd() {
-  hasArrived.value = true
-  isNavigating.value = false
+  hasArrived.value = true;
+  isNavigating.value = false;
 }
 
 function resetRide() {
-  hasArrived.value = false
-  navigationProgress.value = 0
+  hasArrived.value = false;
+  navigationProgress.value = 0;
 }
 
 onMounted(async () => {
   try {
-    const nav = await getNavigatr()
-    pickup.value = await nav.geocode({ address: pickupInput.value })
+    const nav = await getNavigatr();
+    pickup.value = await nav.geocode({ address: pickupInput.value });
   } catch (e) {
-    console.error(e)
+    console.error(e);
   }
-})
+});
 </script>
 
 <template>
@@ -199,12 +216,8 @@ onMounted(async () => {
               </div>
             </div>
 
-            <button
-              class="request-btn"
-              :disabled="loading"
-              @click="startRide"
-            >
-              {{ loading ? 'Calculating...' : 'Request Ride' }}
+            <button class="request-btn" :disabled="loading" @click="startRide">
+              {{ loading ? "Calculating..." : "Request Ride" }}
             </button>
           </div>
         </template>
@@ -214,24 +227,32 @@ onMounted(async () => {
           <div class="nav-hud">
             <div class="nav-status">
               <div class="nav-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" />
                 </svg>
               </div>
               <div class="nav-info">
                 <div class="nav-title">En route to destination</div>
-                <div class="nav-progress-text">{{ navigationProgress }}% complete</div>
+                <div class="nav-progress-text">
+                  {{ navigationProgress }}% complete
+                </div>
               </div>
             </div>
             <div class="nav-progress-bar">
-              <div class="nav-progress-fill" :style="{ width: navigationProgress + '%' }"></div>
+              <div
+                class="nav-progress-fill"
+                :style="{ width: navigationProgress + '%' }"
+              ></div>
             </div>
           </div>
 
           <div class="bottom-sheet nav-bottom">
-            <button class="cancel-btn" @click="cancelRide">
-              Cancel Ride
-            </button>
+            <button class="cancel-btn" @click="cancelRide">Cancel Ride</button>
           </div>
         </template>
 
@@ -239,15 +260,20 @@ onMounted(async () => {
         <template v-if="hasArrived">
           <div class="arrived-sheet">
             <div class="arrived-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20 6L9 17l-5-5"/>
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M20 6L9 17l-5-5" />
               </svg>
             </div>
             <div class="arrived-title">You've arrived!</div>
             <div class="arrived-subtitle">{{ destinationInput }}</div>
-            <button class="done-btn" @click="resetRide">
-              Done
-            </button>
+            <button class="done-btn" @click="resetRide">Done</button>
           </div>
         </template>
       </div>

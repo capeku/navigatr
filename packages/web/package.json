@@ -1,7 +1,18 @@
 {
   "name": "@navigatr/web",
   "version": "1.0.0",
-  "description": "Browser SDK for Navigatr with MapLibre GL JS map rendering",
+  "description": "Browser SDK for maps, routing, and navigation with MapLibre GL JS - the open source alternative to Google Maps",
+  "author": "capeku",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/capeku/navigatr.git",
+    "directory": "packages/web"
+  },
+  "homepage": "https://github.com/capeku/navigatr#readme",
+  "bugs": {
+    "url": "https://github.com/capeku/navigatr/issues"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,7 +31,7 @@
     "dev": "node scripts/embed-css.mjs && tsc --watch"
   },
   "dependencies": {
-    "@navigatr/core": "workspace:*",
+    "@navigatr/core": "^1.0.0",
     "maplibre-gl": "^4.5.0",
     "@turf/nearest-point-on-line": "^7.1.0",
     "@turf/bearing": "^7.1.0",
@@ -37,7 +48,11 @@
     "routing",
     "geocoding",
     "openstreetmap",
-    "navigation"
-  ],
-  "license": "MIT"
+    "navigation",
+    "osm",
+    "ride-sharing",
+    "uber-clone",
+    "google-maps-alternative",
+    "open-source"
+  ]
 }

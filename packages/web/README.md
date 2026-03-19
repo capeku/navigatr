@@ -1,18 +1,14 @@
 # @navigatr/web
 
-Browser SDK for Navigatr with Leaflet map rendering and real-time tracking helpers. Zero API keys, zero cost.
+Browser SDK for maps, routing, and navigation with MapLibre GL JS - the open source alternative to Google Maps. No API keys required.
 
 ## Installation
 
 ```bash
-npm install @navigatr/web leaflet
+npm install @navigatr/web
 ```
 
-Include Leaflet CSS in your HTML:
-
-```html
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-```
+CSS is automatically injected - no external stylesheet needed.
 
 ## Basic Usage
 
@@ -118,7 +114,7 @@ firebase.database().ref(`rides/${rideId}/driverLocation`).on('value', (snap) => 
 
 | Method | Description |
 |--------|-------------|
-| `map(config)` | Create a Leaflet map |
+| `map(config)` | Create a MapLibre GL map |
 | `geocode({ address })` | Convert address to coordinates |
 | `reverseGeocode({ lat, lng })` | Convert coordinates to address |
 | `route(options)` | Calculate route between points |
