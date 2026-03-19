@@ -1,6 +1,10 @@
 # Navigatr
 
-The open source Google Maps alternative. Zero API keys. Zero cost.
+[![npm version](https://img.shields.io/npm/v/@navigatr/web.svg)](https://www.npmjs.com/package/@navigatr/web)
+[![npm downloads](https://img.shields.io/npm/dm/@navigatr/web.svg)](https://www.npmjs.com/package/@navigatr/web)
+[![license](https://img.shields.io/npm/l/@navigatr/web.svg)](https://github.com/capeku/navigatr/blob/main/LICENSE)
+
+The open source Google Maps alternative. No API keys. No billing surprises.
 
 Navigatr is a maps SDK that provides routing, geocoding, and map rendering using free, public APIs. Build ride-sharing apps, delivery trackers, or any location-based service without paying for Google Maps.
 
@@ -8,7 +12,7 @@ Navigatr is a maps SDK that provides routing, geocoding, and map rendering using
 
 - **Routing** - Turn-by-turn directions with ETA and distance
 - **Geocoding** - Convert addresses to coordinates and vice versa
-- **Map Rendering** - Leaflet-based maps with route visualization
+- **Map Rendering** - MapLibre GL maps with route visualization
 - **Real-Time Tracking** - Built-in helpers for ride-sharing apps
 - **Zero Cost** - Uses public OpenStreetMap infrastructure
 
@@ -17,16 +21,15 @@ Navigatr is a maps SDK that provides routing, geocoding, and map rendering using
 | Package | Description |
 |---------|-------------|
 | [@navigatr/core](./packages/core) | Pure TypeScript SDK for routing and geocoding |
-| [@navigatr/web](./packages/web) | Browser SDK with Leaflet map rendering |
+| [@navigatr/web](./packages/web) | Browser SDK with MapLibre GL map rendering |
 
 ## Quick Start
 
 ```bash
-npm install @navigatr/web leaflet
+npm install @navigatr/web
 ```
 
 ```html
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <div id="map" style="height: 400px"></div>
 ```
 
@@ -104,11 +107,13 @@ Navigatr uses public APIs with usage limits:
 
 **Best Practice:** Geocode addresses once (when ride is requested), then use coordinates for all subsequent route calculations.
 
-## APIs Used
+## Built On
 
 - **Routing**: [Valhalla](https://valhalla.github.io/valhalla/) at `valhalla1.openstreetmap.de`
 - **Geocoding**: [Nominatim](https://nominatim.org/) at `nominatim.openstreetmap.org`
-- **Map Tiles**: [OpenStreetMap](https://www.openstreetmap.org/)
+- **Autocomplete**: [Photon](https://photon.komoot.io/) at `photon.komoot.io`
+- **Map Rendering**: [MapLibre GL JS](https://maplibre.org/)
+- **Map Tiles**: [OpenFreeMap](https://openfreemap.org/)
 
 ## Self-Hosting
 
