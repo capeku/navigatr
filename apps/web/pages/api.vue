@@ -153,8 +153,22 @@ console.<span class="text-blue-400">log</span>(<span class="text-yellow-300">`Di
             <li class="flex items-start gap-3 text-gray-500">
               <span class="w-2 h-2 bg-accent rounded-full mt-2 shrink-0"></span
               ><span
+                ><strong class="text-gray-900">Custom Markers</strong> -
+                Draggable markers with custom HTML icons</span
+              >
+            </li>
+            <li class="flex items-start gap-3 text-gray-500">
+              <span class="w-2 h-2 bg-accent rounded-full mt-2 shrink-0"></span
+              ><span
                 ><strong class="text-gray-900">Navigation</strong> - Real-time
                 navigation with camera following</span
+              >
+            </li>
+            <li class="flex items-start gap-3 text-gray-500">
+              <span class="w-2 h-2 bg-accent rounded-full mt-2 shrink-0"></span
+              ><span
+                ><strong class="text-gray-900">Alternate Routes</strong> -
+                Multiple route options with interactive selection</span
               >
             </li>
             <li class="flex items-start gap-3 text-gray-500">
@@ -282,7 +296,7 @@ console.<span class="text-blue-400">log</span>(<span class="text-yellow-300">`Di
                     Include turn-by-turn instructions (default: false)
                   </td>
                 </tr>
-                <tr>
+                <tr class="border-b border-gray-100">
                   <td class="py-3 px-4">
                     <code
                       class="text-black bg-accent/50 px-1.5 py-0.5 rounded text-xs"
@@ -294,9 +308,24 @@ console.<span class="text-blue-400">log</span>(<span class="text-yellow-300">`Di
                     Consider traffic conditions (default: false)
                   </td>
                 </tr>
+                <tr>
+                  <td class="py-3 px-4">
+                    <code
+                      class="text-black bg-accent/50 px-1.5 py-0.5 rounded text-xs"
+                      >shortest</code
+                    >
+                  </td>
+                  <td class="py-3 px-4">boolean</td>
+                  <td class="py-3 px-4 text-gray-500">
+                    Prefer shortest distance over fastest time (default: false)
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
+          <p class="text-gray-500 text-sm mb-4 mt-4">
+            The route response automatically includes up to 3 alternate routes when available.
+          </p>
           <div
             class="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden"
           >
@@ -311,7 +340,8 @@ console.<span class="text-blue-400">log</span>(<span class="text-yellow-300">`Di
 console.<span class="text-blue-400">log</span>(route.durationText)  <span class="text-gray-500">// "15 mins"</span>
 console.<span class="text-blue-400">log</span>(route.distanceText)  <span class="text-gray-500">// "8.2 km"</span>
 console.<span class="text-blue-400">log</span>(route.polyline)      <span class="text-gray-500">// Array of LatLng points</span>
-console.<span class="text-blue-400">log</span>(route.maneuvers)     <span class="text-gray-500">// Turn-by-turn instructions</span></code></pre>
+console.<span class="text-blue-400">log</span>(route.maneuvers)     <span class="text-gray-500">// Turn-by-turn instructions</span>
+console.<span class="text-blue-400">log</span>(route.alternates)    <span class="text-gray-500">// Array of AlternateRoute</span></code></pre>
           </div>
         </div>
 
@@ -471,6 +501,13 @@ results.<span class="text-blue-400">forEach</span>(result => {
   }
 })
 
+<span class="text-gray-500">// Custom HTML marker</span>
+<span class="text-purple-400">const</span> customMarker = map.<span class="text-blue-400">addMarker</span>({
+  <span class="text-cyan-300">lat</span>: <span class="text-orange-400">5.6037</span>,
+  <span class="text-cyan-300">lng</span>: <span class="text-orange-400">-0.1870</span>,
+  <span class="text-cyan-300">iconHtml</span>: <span class="text-yellow-300">'&lt;div class="custom-marker"&gt;🏠&lt;/div&gt;'</span>
+})
+
 <span class="text-gray-500">// Update marker position</span>
 marker.<span class="text-blue-400">setLatLng</span>({ <span class="text-cyan-300">lat</span>: <span class="text-orange-400">5.6100</span>, <span class="text-cyan-300">lng</span>: <span class="text-orange-400">-0.1800</span> })
 
@@ -532,6 +569,42 @@ map.<span class="text-blue-400">drawRoute</span>(route.polyline, {
 
 <span class="text-gray-500">// Later: stop listening</span>
 <span class="text-blue-400">unsubscribe</span>()</code></pre>
+          </div>
+        </div>
+
+        <div class="mb-10">
+          <h2 class="text-xl font-semibold text-gray-900 mb-3">Alternate Routes</h2>
+          <p class="text-gray-500 text-sm mb-4">
+            Routes automatically include alternate options. You can display them on the map and let users switch between them.
+          </p>
+          <div
+            class="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden"
+          >
+            <pre
+              class="p-4 overflow-x-auto"
+            ><code class="font-mono text-sm text-gray-100"><span class="text-purple-400">const</span> route = <span class="text-purple-400">await</span> nav.<span class="text-blue-400">route</span>({
+  <span class="text-cyan-300">origin</span>: pickup,
+  <span class="text-cyan-300">destination</span>: destination
+})
+
+<span class="text-gray-500">// Draw the main route</span>
+map.<span class="text-blue-400">drawRoute</span>(route.polyline)
+
+<span class="text-gray-500">// Draw alternate routes (rendered behind the main route)</span>
+<span class="text-purple-400">if</span> (route.alternates) {
+  map.<span class="text-blue-400">drawAlternateRoutes</span>(route.alternates)
+}
+
+<span class="text-gray-500">// Handle clicks on alternate routes</span>
+map.<span class="text-blue-400">onAlternateRouteClick</span>((index) => {
+  <span class="text-gray-500">// Switch to the clicked alternate route</span>
+  <span class="text-purple-400">const</span> alt = route.alternates[index]
+  map.<span class="text-blue-400">drawRoute</span>(alt.polyline)
+  console.<span class="text-blue-400">log</span>(<span class="text-yellow-300">`Switched to alternate: <span class="text-cyan-300">${alt.durationText}</span>`</span>)
+})
+
+<span class="text-gray-500">// Programmatically switch routes</span>
+map.<span class="text-blue-400">switchRoute</span>(<span class="text-orange-400">0</span>)  <span class="text-gray-500">// Switch to first alternate</span></code></pre>
           </div>
         </div>
       </section>
@@ -802,6 +875,14 @@ nav.<span class="text-blue-400">setStyleFromPreset</span>(<span class="text-yell
   <span class="text-cyan-300">lng</span>: <span class="text-green-400">number</span>
 }
 
+<span class="text-purple-400">interface</span> <span class="text-cyan-400">RouteOptions</span> {
+  <span class="text-cyan-300">origin</span>: <span class="text-cyan-400">LatLng</span>
+  <span class="text-cyan-300">destination</span>: <span class="text-cyan-400">LatLng</span>
+  <span class="text-cyan-300">maneuvers</span>?: <span class="text-green-400">boolean</span>
+  <span class="text-cyan-300">traffic</span>?: <span class="text-green-400">boolean</span>
+  <span class="text-cyan-300">shortest</span>?: <span class="text-green-400">boolean</span>
+}
+
 <span class="text-purple-400">interface</span> <span class="text-cyan-400">RouteResult</span> {
   <span class="text-cyan-300">durationSeconds</span>: <span class="text-green-400">number</span>
   <span class="text-cyan-300">durationText</span>: <span class="text-green-400">string</span>
@@ -809,6 +890,15 @@ nav.<span class="text-blue-400">setStyleFromPreset</span>(<span class="text-yell
   <span class="text-cyan-300">distanceText</span>: <span class="text-green-400">string</span>
   <span class="text-cyan-300">polyline</span>: <span class="text-cyan-400">LatLng</span>[]
   <span class="text-cyan-300">maneuvers</span>?: <span class="text-cyan-400">Maneuver</span>[]
+  <span class="text-cyan-300">alternates</span>?: <span class="text-cyan-400">AlternateRoute</span>[]
+}
+
+<span class="text-purple-400">interface</span> <span class="text-cyan-400">AlternateRoute</span> {
+  <span class="text-cyan-300">durationSeconds</span>: <span class="text-green-400">number</span>
+  <span class="text-cyan-300">durationText</span>: <span class="text-green-400">string</span>
+  <span class="text-cyan-300">distanceMeters</span>: <span class="text-green-400">number</span>
+  <span class="text-cyan-300">distanceText</span>: <span class="text-green-400">string</span>
+  <span class="text-cyan-300">polyline</span>: <span class="text-cyan-400">LatLng</span>[]
 }
 
 <span class="text-purple-400">interface</span> <span class="text-cyan-400">GeocodeResult</span> {
@@ -848,6 +938,7 @@ nav.<span class="text-blue-400">setStyleFromPreset</span>(<span class="text-yell
   <span class="text-cyan-300">lng</span>: <span class="text-green-400">number</span>
   <span class="text-cyan-300">label</span>?: <span class="text-green-400">string</span>
   <span class="text-cyan-300">draggable</span>?: <span class="text-green-400">boolean</span>
+  <span class="text-cyan-300">iconHtml</span>?: <span class="text-green-400">string</span>
   <span class="text-cyan-300">onDragEnd</span>?: (location: <span class="text-cyan-400">LatLng</span>) => <span class="text-green-400">void</span>
 }
 

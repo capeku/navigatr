@@ -1,4 +1,4 @@
-import type { LatLng, Maneuver, RouteResult } from '@navigatr/core'
+import type { LatLng, Maneuver, RouteResult, AlternateRoute } from '@navigatr/core'
 
 export interface MapConfig {
   container: string
@@ -13,6 +13,7 @@ export interface MarkerOptions {
   lng: number
   label?: string
   draggable?: boolean
+  iconHtml?: string
   onDragEnd?: (location: LatLng) => void
 }
 
@@ -64,4 +65,9 @@ export interface NavigatrMap {
 
   // Route progress visualization
   updateTraveledRoute(polyline: LatLng[], currentIndex: number): void
+
+  // Alternate routes
+  drawAlternateRoutes(alternates: AlternateRoute[]): void
+  switchRoute(index: number): void
+  onAlternateRouteClick(callback: (index: number) => void): () => void
 }

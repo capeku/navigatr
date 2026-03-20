@@ -16,6 +16,7 @@ const destination = ref<GeocodeResult | null>(null);
 const routeResult = ref<RouteResult | null>(null);
 const polyline = ref<LatLng[]>([]);
 const loading = ref(false);
+const selectedRouteIndex = ref(-1); // -1 = main route, 0+ = alternate index
 
 // Navigation state
 const routeDemoRef = ref<{
@@ -26,6 +27,23 @@ const routeDemoRef = ref<{
 const isNavigating = ref(false);
 const navigationProgress = ref(0);
 const hasArrived = ref(false);
+
+// Computed for current route display
+const currentRoute = computed(() => {
+  if (!routeResult.value) return null;
+  if (selectedRouteIndex.value === -1) {
+    return {
+      durationText: routeResult.value.durationText,
+      distanceText: routeResult.value.distanceText,
+    };
+  }
+  const alt = routeResult.value.alternates?.[selectedRouteIndex.value];
+  return alt ? { durationText: alt.durationText, distanceText: alt.distanceText } : null;
+});
+
+const hasAlternates = computed(() => {
+  return routeResult.value?.alternates && routeResult.value.alternates.length > 0;
+});
 
 function handlePickupSelect(result: AutocompleteResult) {
   pickup.value = {
@@ -105,6 +123,7 @@ async function calculateRoute() {
   if (!pickup.value || !destination.value) return;
 
   loading.value = true;
+  selectedRouteIndex.value = -1; // Reset to main route
   try {
     const nav = await getNavigatr();
     const result = await nav.route({
@@ -119,6 +138,25 @@ async function calculateRoute() {
   } finally {
     loading.value = false;
   }
+}
+
+function selectRoute(index: number) {
+  if (!routeResult.value) return;
+
+  selectedRouteIndex.value = index;
+
+  if (index === -1) {
+    // Select main route
+    polyline.value = routeResult.value.polyline;
+  } else if (routeResult.value.alternates && routeResult.value.alternates[index]) {
+    // Select alternate route
+    polyline.value = routeResult.value.alternates[index].polyline;
+  }
+}
+
+function handleSwitchRoute(index: number) {
+  // When user clicks on an alternate route on the map
+  selectRoute(index);
 }
 
 function startRide() {
@@ -176,6 +214,7 @@ onMounted(async () => {
         @update:destination="handleDestinationDrag"
         @navigation-progress="handleNavigationProgress"
         @navigation-end="handleNavigationEnd"
+        @switch-route="handleSwitchRoute"
       />
 
       <div class="app-ui">
@@ -204,14 +243,41 @@ onMounted(async () => {
           </div>
 
           <div v-if="routeResult" class="bottom-sheet">
+            <!-- Route Options -->
+            <div v-if="hasAlternates" class="route-options">
+              <div class="route-options-label">Choose route</div>
+              <div class="route-options-list">
+                <button
+                  class="route-option"
+                  :class="{ active: selectedRouteIndex === -1 }"
+                  @click="selectRoute(-1)"
+                >
+                  <span class="route-option-badge">Fastest</span>
+                  <span class="route-option-time">{{ routeResult.durationText }}</span>
+                  <span class="route-option-dist">{{ routeResult.distanceText }}</span>
+                </button>
+                <button
+                  v-for="(alt, index) in routeResult.alternates"
+                  :key="index"
+                  class="route-option"
+                  :class="{ active: selectedRouteIndex === index }"
+                  @click="selectRoute(index)"
+                >
+                  <span class="route-option-badge alt">Alt {{ index + 1 }}</span>
+                  <span class="route-option-time">{{ alt.durationText }}</span>
+                  <span class="route-option-dist">{{ alt.distanceText }}</span>
+                </button>
+              </div>
+            </div>
+
             <div class="route-stats">
               <div class="stat">
-                <span class="stat-value">{{ routeResult.durationText }}</span>
+                <span class="stat-value">{{ currentRoute?.durationText }}</span>
                 <span class="stat-label">duration</span>
               </div>
               <div class="stat-divider"></div>
               <div class="stat">
-                <span class="stat-value">{{ routeResult.distanceText }}</span>
+                <span class="stat-value">{{ currentRoute?.distanceText }}</span>
                 <span class="stat-label">distance</span>
               </div>
             </div>
@@ -228,8 +294,8 @@ onMounted(async () => {
             <div class="nav-status">
               <div class="nav-icon">
                 <svg
-                  width="20"
-                  height="20"
+                  width="16"
+                  height="16"
                   viewBox="0 0 24 24"
                   fill="currentColor"
                 >
@@ -261,8 +327,8 @@ onMounted(async () => {
           <div class="arrived-sheet">
             <div class="arrived-icon">
               <svg
-                width="32"
-                height="32"
+                width="24"
+                height="24"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -306,22 +372,22 @@ onMounted(async () => {
 }
 
 .search-card {
-  margin: 52px 16px 16px;
+  margin: 48px 12px 12px;
   background: rgba(255, 255, 255, 0.98);
-  border-radius: 16px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .input-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .input-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -337,14 +403,14 @@ onMounted(async () => {
 .input-divider {
   height: 1px;
   background: #eee;
-  margin: 8px 0 8px 22px;
+  margin: 6px 0 6px 16px;
 }
 
 .bottom-sheet {
   margin-top: auto;
   background: rgba(255, 255, 255, 0.98);
-  border-radius: 24px 24px 0 0;
-  padding: 24px 20px;
+  border-radius: 20px 20px 0 0;
+  padding: 16px 14px;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
 }
 
@@ -352,9 +418,9 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 24px;
-  padding: 16px 0;
-  margin-bottom: 16px;
+  gap: 16px;
+  padding: 10px 0;
+  margin-bottom: 10px;
   border-top: 1px solid #eee;
   border-bottom: 1px solid #eee;
 }
@@ -365,31 +431,31 @@ onMounted(async () => {
 
 .stat-value {
   display: block;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
   color: #111;
 }
 
 .stat-label {
-  font-size: 12px;
+  font-size: 10px;
   color: #888;
   text-transform: uppercase;
 }
 
 .stat-divider {
   width: 1px;
-  height: 32px;
+  height: 24px;
   background: #ddd;
 }
 
 .request-btn {
   width: 100%;
-  padding: 16px;
+  padding: 12px;
   background: #111;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   color: #fff;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -407,28 +473,28 @@ onMounted(async () => {
 
 /* Navigation UI */
 .nav-hud {
-  margin: 52px 16px 16px;
+  margin: 48px 12px 12px;
   background: rgba(0, 0, 0, 0.9);
   backdrop-filter: blur(10px);
-  border-radius: 16px;
-  padding: 16px;
+  border-radius: 12px;
+  padding: 12px;
 }
 
 .nav-status {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .nav-icon {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--accent);
-  border-radius: 10px;
+  border-radius: 8px;
   color: #000;
 }
 
@@ -437,14 +503,14 @@ onMounted(async () => {
 }
 
 .nav-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: #fff;
   margin-bottom: 2px;
 }
 
 .nav-progress-text {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--accent);
 }
 
@@ -468,12 +534,12 @@ onMounted(async () => {
 
 .cancel-btn {
   width: 100%;
-  padding: 16px;
+  padding: 12px;
   background: #ff4444;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   color: #fff;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -488,15 +554,15 @@ onMounted(async () => {
 .arrived-sheet {
   margin-top: auto;
   background: rgba(255, 255, 255, 0.98);
-  border-radius: 24px 24px 0 0;
-  padding: 32px 20px;
+  border-radius: 20px 20px 0 0;
+  padding: 24px 16px;
   text-align: center;
 }
 
 .arrived-icon {
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 16px;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -506,26 +572,26 @@ onMounted(async () => {
 }
 
 .arrived-title {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
   color: #111;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .arrived-subtitle {
-  font-size: 14px;
+  font-size: 12px;
   color: #666;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .done-btn {
   width: 100%;
-  padding: 16px;
+  padding: 12px;
   background: #111;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   color: #fff;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -534,5 +600,79 @@ onMounted(async () => {
 
 .done-btn:hover {
   opacity: 0.9;
+}
+
+/* Route Options */
+.route-options {
+  margin-bottom: 10px;
+}
+
+.route-options-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.route-options-list {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.route-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 8px 10px;
+  background: #f5f5f5;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  min-width: 75px;
+  font-family: inherit;
+}
+
+.route-option:hover {
+  background: #eee;
+}
+
+.route-option.active {
+  background: rgba(0, 255, 148, 0.1);
+  border-color: var(--accent);
+}
+
+.route-option-badge {
+  font-size: 8px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  padding: 2px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.route-option-badge.alt {
+  background: #666;
+}
+
+.route-option.active .route-option-badge.alt {
+  background: var(--accent);
+}
+
+.route-option-time {
+  font-size: 12px;
+  font-weight: 700;
+  color: #111;
+}
+
+.route-option-dist {
+  font-size: 10px;
+  color: #666;
 }
 </style>

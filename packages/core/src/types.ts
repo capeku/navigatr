@@ -24,6 +24,15 @@ export interface RouteOptions {
   destination: LatLng
   maneuvers?: boolean
   traffic?: boolean
+  shortest?: boolean
+}
+
+export interface AlternateRoute {
+  durationSeconds: number
+  durationText: string
+  distanceMeters: number
+  distanceText: string
+  polyline: LatLng[]
 }
 
 export interface RouteResult {
@@ -33,6 +42,7 @@ export interface RouteResult {
   distanceText: string
   polyline: LatLng[]
   maneuvers?: Maneuver[]
+  alternates?: AlternateRoute[]
 }
 
 export interface AutocompleteResult {

@@ -10,6 +10,9 @@
       <NuxtLink to="/docs" class="text-sm text-gray-900 hover:text-accent transition-colors">
         Playground
       </NuxtLink>
+      <NuxtLink to="/real-estate" class="text-sm text-gray-900 hover:text-accent transition-colors">
+        Real Estate
+      </NuxtLink>
       <NuxtLink to="/api" class="text-sm text-gray-900 hover:text-accent transition-colors">
         Documentation
       </NuxtLink>

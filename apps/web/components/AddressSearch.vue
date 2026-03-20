@@ -129,7 +129,7 @@ async function triggerSearch() {
         class="search-btn"
         @mousedown.prevent="triggerSearch"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <circle cx="11" cy="11" r="8"/>
           <path d="M21 21l-4.35-4.35"/>
         </svg>
@@ -146,7 +146,7 @@ async function triggerSearch() {
         @mousedown.prevent="selectSuggestion(suggestion)"
       >
         <span class="suggestion-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
             <circle cx="12" cy="10" r="3"/>
           </svg>
@@ -172,12 +172,12 @@ async function triggerSearch() {
 
 .input-wrapper input {
   width: 100%;
-  padding: 14px 16px;
-  padding-right: 40px;
+  padding: 10px 12px;
+  padding-right: 36px;
   background: rgba(255, 255, 255, 0.95);
   border: none;
-  border-radius: 12px;
-  font-size: 15px;
+  border-radius: 8px;
+  font-size: 13px;
   font-family: inherit;
   color: #111;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -194,17 +194,17 @@ async function triggerSearch() {
 
 .search-btn {
   position: absolute;
-  right: 8px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--accent, #00FF94);
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #111;
   cursor: pointer;
   transition: opacity 0.15s;
@@ -233,11 +233,11 @@ async function triggerSearch() {
 
 .suggestions {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
   background: rgba(255, 255, 255, 0.98);
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   overflow: hidden;
   z-index: 50;
@@ -246,9 +246,9 @@ async function triggerSearch() {
 .suggestion-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  padding: 12px 16px;
+  padding: 8px 12px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -274,7 +274,7 @@ async function triggerSearch() {
 }
 
 .suggestion-name {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   color: #111;
   white-space: nowrap;
@@ -283,7 +283,7 @@ async function triggerSearch() {
 }
 
 .suggestion-detail {
-  font-size: 12px;
+  font-size: 10px;
   color: #666;
   white-space: nowrap;
   overflow: hidden;

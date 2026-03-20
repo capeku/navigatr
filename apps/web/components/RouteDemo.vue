@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { LatLng, RouteResult, NavigatrMap, NavigatrMarker } from '@navigatr/web'
+import type { LatLng, RouteResult, NavigatrMap, NavigatrMarker, AlternateRoute } from '@navigatr/web'
 
 const props = defineProps<{
   polyline: LatLng[]
@@ -13,6 +13,7 @@ const emit = defineEmits<{
   'update:destination': [location: LatLng]
   'navigation-progress': [progress: number]
   'navigation-end': []
+  'switch-route': [index: number]
 }>()
 
 let map: NavigatrMap | null = null
@@ -133,6 +134,11 @@ onMounted(async () => {
     center: { lat: 5.6037, lng: -0.1870 },
     zoom: 12
   })
+
+  // Handle clicks on alternate routes
+  map.onAlternateRouteClick((index) => {
+    emit('switch-route', index)
+  })
 })
 
 onUnmounted(() => {
@@ -145,7 +151,7 @@ defineExpose({
   isNavigating
 })
 
-watch(() => [props.polyline, props.origin, props.destination], () => {
+watch(() => [props.polyline, props.origin, props.destination, props.routeResult], () => {
   if (!map || isNavigating.value) return
 
   map.clearRoute()
@@ -153,6 +159,11 @@ watch(() => [props.polyline, props.origin, props.destination], () => {
   if (props.polyline.length > 0) {
     map.drawRoute(props.polyline)
     map.fitRoute(props.polyline)
+
+    // Draw alternate routes if available
+    if (props.routeResult?.alternates && props.routeResult.alternates.length > 0) {
+      map.drawAlternateRoutes(props.routeResult.alternates)
+    }
   }
 
   if (props.origin) {

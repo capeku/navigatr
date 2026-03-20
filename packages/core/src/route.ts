@@ -1,4 +1,4 @@
-import type { LatLng, RouteResult, RouteOptions, Maneuver } from './types'
+import type { LatLng, RouteResult, RouteOptions, Maneuver, AlternateRoute } from './types'
 import { decodePolyline } from './utils/polyline'
 import { formatDuration, formatDistance } from './utils/format'
 
@@ -24,24 +24,31 @@ interface ValhallaRequest {
   costing_options?: {
     auto?: {
       use_traffic?: number
+      shortest?: boolean
     }
   }
   directions_options: {
     units: string
   }
+  alternates?: number
+}
+
+interface ValhallaTrip {
+  legs: Array<{
+    shape: string
+    maneuvers: ValhallaManeuver[]
+  }>
+  summary: {
+    time: number
+    length: number
+  }
 }
 
 interface ValhallaResponse {
-  trip: {
-    legs: Array<{
-      shape: string
-      maneuvers: ValhallaManeuver[]
-    }>
-    summary: {
-      time: number
-      length: number
-    }
-  }
+  trip: ValhallaTrip
+  alternates?: Array<{
+    trip: ValhallaTrip
+  }>
 }
 
 const MANEUVER_TYPES: Record<number, string> = {
@@ -81,7 +88,7 @@ export async function getRoute(
   options: RouteOptions,
   valhallaUrl: string = DEFAULT_VALHALLA_URL
 ): Promise<RouteResult> {
-  const { origin, destination, maneuvers: includeManeuvers, traffic } = options
+  const { origin, destination, maneuvers: includeManeuvers, traffic, shortest } = options
 
   const requestBody: ValhallaRequest = {
     locations: [
@@ -89,13 +96,15 @@ export async function getRoute(
       { lon: destination.lng, lat: destination.lat, type: 'break' }
     ],
     costing: 'auto',
-    directions_options: { units: 'km' }
+    directions_options: { units: 'km' },
+    alternates: 3
   }
 
-  if (traffic) {
+  if (traffic || shortest) {
     requestBody.costing_options = {
       auto: {
-        use_traffic: 1
+        ...(traffic && { use_traffic: 1 }),
+        ...(shortest && { shortest: true })
       }
     }
   }
@@ -141,6 +150,23 @@ export async function getRoute(
       durationText: formatDuration(m.time),
       startPoint: polyline[m.begin_shape_index] || polyline[0]
     }))
+  }
+
+  // Parse alternate routes
+  if (data.alternates && data.alternates.length > 0) {
+    result.alternates = data.alternates.map((alt): AlternateRoute => {
+      const altPolyline = decodePolyline(alt.trip.legs[0].shape)
+      const altDuration = alt.trip.summary.time
+      const altDistance = alt.trip.summary.length * 1000
+
+      return {
+        durationSeconds: altDuration,
+        durationText: formatDuration(altDuration),
+        distanceMeters: altDistance,
+        distanceText: formatDistance(altDistance),
+        polyline: altPolyline
+      }
+    })
   }
 
   return result

@@ -4,7 +4,7 @@ import bearing from '@turf/bearing'
 import distance from '@turf/distance'
 import along from '@turf/along'
 import { lineString, point } from '@turf/helpers'
-import type { LatLng, RouteResult, Maneuver } from '@navigatr/core'
+import type { LatLng, RouteResult, Maneuver, AlternateRoute } from '@navigatr/core'
 import { injectMapLibreStyles } from './styles'
 import type {
   MapConfig,
@@ -21,8 +21,12 @@ const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty'
 const ROUTE_COLOR = '#00FF94'
 const ROUTE_TRAVELED_COLOR = '#888888'
 const ROUTE_WEIGHT = 4
+const ALTERNATE_ROUTE_COLOR = '#666666'
+const ALTERNATE_ROUTE_WEIGHT = 3
+const ALTERNATE_ROUTE_OPACITY = 0.6
 const OFF_ROUTE_THRESHOLD_METERS = 50
 const TURN_ZOOM_THRESHOLD_METERS = 200
+const MAX_ALTERNATES = 3
 
 const DRIVER_ICONS: Record<string, string> = {
   car: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#00FF94"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>`,
@@ -113,6 +117,11 @@ export function createMap(config: MapConfig): NavigatrMap {
   let pendingFitBounds: maplibregl.LngLatBounds | null = null
   let isMapLoaded = false
 
+  // Alternate routes state
+  let activeRoutePolyline: LatLng[] = []
+  let alternateRoutes: AlternateRoute[] = []
+  const alternateRouteClickListeners: Set<(index: number) => void> = new Set()
+
   function emitEvent(event: NavigationEvent): void {
     eventListeners.forEach((cb) => cb(event))
   }
@@ -120,6 +129,48 @@ export function createMap(config: MapConfig): NavigatrMap {
   function addRouteLayer(): void {
     if (map.getSource('route')) return
 
+    // Add alternate route layers FIRST (so they render behind main route)
+    for (let i = 0; i < MAX_ALTERNATES; i++) {
+      map.addSource(`alternate-route-${i}`, {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: [] }
+        }
+      })
+
+      map.addLayer({
+        id: `alternate-route-line-${i}`,
+        type: 'line',
+        source: `alternate-route-${i}`,
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': ALTERNATE_ROUTE_COLOR,
+          'line-width': ALTERNATE_ROUTE_WEIGHT,
+          'line-opacity': ALTERNATE_ROUTE_OPACITY
+        }
+      })
+
+      // Add click handler for alternate routes
+      map.on('click', `alternate-route-line-${i}`, (e) => {
+        e.preventDefault()
+        alternateRouteClickListeners.forEach((cb) => cb(i))
+      })
+
+      // Change cursor on hover
+      map.on('mouseenter', `alternate-route-line-${i}`, () => {
+        map.getCanvas().style.cursor = 'pointer'
+      })
+      map.on('mouseleave', `alternate-route-line-${i}`, () => {
+        map.getCanvas().style.cursor = ''
+      })
+    }
+
+    // Add main route source and layer
     map.addSource('route', {
       type: 'geojson',
       data: {
@@ -212,9 +263,18 @@ export function createMap(config: MapConfig): NavigatrMap {
     addMarker(options: MarkerOptions): NavigatrMarker {
       const id = `marker-${markerIdCounter++}`
 
-      const marker = new maplibregl.Marker({
+      let markerConfig: maplibregl.MarkerOptions = {
         draggable: options.draggable ?? false
-      })
+      }
+
+      if (options.iconHtml) {
+        const el = document.createElement('div')
+        el.innerHTML = options.iconHtml
+        el.style.cursor = 'pointer'
+        markerConfig.element = el
+      }
+
+      const marker = new maplibregl.Marker(markerConfig)
         .setLngLat([options.lng, options.lat])
         .addTo(map)
 
@@ -243,6 +303,7 @@ export function createMap(config: MapConfig): NavigatrMap {
     },
 
     drawRoute(polyline: LatLng[], style?: RouteStyleOptions): void {
+      activeRoutePolyline = polyline
       const coordinates = toGeoJSONCoords(polyline)
 
       const source = map.getSource('route') as maplibregl.GeoJSONSource | undefined
@@ -279,6 +340,9 @@ export function createMap(config: MapConfig): NavigatrMap {
 
     clearRoute(): void {
       pendingRouteData = null
+      activeRoutePolyline = []
+      alternateRoutes = []
+
       const source = map.getSource('route') as maplibregl.GeoJSONSource
       if (source) {
         source.setData({
@@ -294,6 +358,18 @@ export function createMap(config: MapConfig): NavigatrMap {
           properties: {},
           geometry: { type: 'LineString', coordinates: [] }
         })
+      }
+
+      // Clear all alternate routes
+      for (let i = 0; i < MAX_ALTERNATES; i++) {
+        const altSource = map.getSource(`alternate-route-${i}`) as maplibregl.GeoJSONSource | undefined
+        if (altSource) {
+          altSource.setData({
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: [] }
+          })
+        }
       }
     },
 
@@ -503,6 +579,77 @@ export function createMap(config: MapConfig): NavigatrMap {
           geometry: { type: 'LineString', coordinates: traveledCoords }
         })
       }
+    },
+
+    drawAlternateRoutes(alternates: AlternateRoute[]): void {
+      alternateRoutes = alternates.slice(0, MAX_ALTERNATES)
+
+      // Clear all alternate route layers first
+      for (let i = 0; i < MAX_ALTERNATES; i++) {
+        const source = map.getSource(`alternate-route-${i}`) as maplibregl.GeoJSONSource | undefined
+        if (source) {
+          source.setData({
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: [] }
+          })
+        }
+      }
+
+      // Draw each alternate route
+      alternateRoutes.forEach((alt, index) => {
+        const source = map.getSource(`alternate-route-${index}`) as maplibregl.GeoJSONSource | undefined
+        if (source && alt.polyline.length > 0) {
+          const coordinates = toGeoJSONCoords(alt.polyline)
+          source.setData({
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates }
+          })
+        }
+      })
+    },
+
+    switchRoute(index: number): void {
+      if (index < 0 || index >= alternateRoutes.length) return
+
+      const newActive = alternateRoutes[index]
+      const oldActivePolyline = activeRoutePolyline
+
+      // Get current active route data
+      const routeSource = map.getSource('route') as maplibregl.GeoJSONSource | undefined
+      if (!routeSource) return
+
+      // Swap: new active becomes main route
+      activeRoutePolyline = newActive.polyline
+      routeSource.setData({
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: toGeoJSONCoords(newActive.polyline) }
+      })
+
+      // Update alternates array: remove the promoted one, add the old active
+      const newAlternates = [...alternateRoutes]
+      newAlternates.splice(index, 1)
+
+      // Add old active route as alternate (if it had data)
+      if (oldActivePolyline.length > 0) {
+        newAlternates.push({
+          polyline: oldActivePolyline,
+          durationSeconds: 0,
+          durationText: '',
+          distanceMeters: 0,
+          distanceText: ''
+        })
+      }
+
+      // Redraw alternates
+      this.drawAlternateRoutes(newAlternates)
+    },
+
+    onAlternateRouteClick(callback: (index: number) => void): () => void {
+      alternateRouteClickListeners.add(callback)
+      return () => alternateRouteClickListeners.delete(callback)
     }
   }
 }
