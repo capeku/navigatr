@@ -1,6 +1,6 @@
 {
   "name": "@navigatr/core",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Pure TypeScript routing and geocoding SDK using Valhalla and Nominatim - the open source alternative to Google Maps",
   "author": "capeku",
   "license": "MIT",
