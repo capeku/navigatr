@@ -31,7 +31,7 @@
     "dev": "node scripts/embed-css.mjs && tsc --watch"
   },
   "dependencies": {
-    "@navigatr/core": "^1.0.0",
+    "@navigatr/core": "workspace:*",
     "maplibre-gl": "^4.5.0",
     "@turf/nearest-point-on-line": "^7.1.0",
     "@turf/bearing": "^7.1.0",
