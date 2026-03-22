@@ -5,6 +5,7 @@ import distance from '@turf/distance'
 import along from '@turf/along'
 import { lineString, point } from '@turf/helpers'
 import type { LatLng, RouteResult, Maneuver, AlternateRoute } from '@navigatr/core'
+import { resolveBaseMapStyle } from './baseMapStyle'
 import { injectMapLibreStyles } from './styles'
 import type {
   MapConfig,
@@ -17,7 +18,6 @@ import type {
   NavigationEvent
 } from './types'
 
-const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty'
 const ROUTE_COLOR = '#00FF94'
 const ROUTE_TRAVELED_COLOR = '#888888'
 const ROUTE_WEIGHT = 4
@@ -99,7 +99,7 @@ export function createMap(config: MapConfig): NavigatrMap {
 
   const map = new maplibregl.Map({
     container: config.container,
-    style: OPENFREEMAP_STYLE,
+    style: resolveBaseMapStyle(config),
     center: [config.center.lng, config.center.lat],
     zoom: config.zoom ?? 13,
     pitch: config.pitch ?? 0,

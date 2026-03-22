@@ -26,8 +26,19 @@ const nav = new Navigatr(config?)
 interface NavigatrConfig {
   valhallaUrl?: string   // Default: 'https://valhalla1.openstreetmap.de'
   nominatimUrl?: string  // Default: 'https://nominatim.openstreetmap.org'
+  nominatimFallbackUrls?: string[]
+  photonUrl?: string     // Default: 'https://photon.komoot.io'
+  photonFallbackUrls?: string[]
+  cache?: {
+    enabled?: boolean    // Default: true
+    ttlMs?: number       // Default: 300000 (5 minutes)
+    maxEntries?: number  // Default: 200
+  }
 }
 ```
+
+`nominatimFallbackUrls` and `photonFallbackUrls` are tried in order when the primary provider fails.
+Geocoding, reverse geocoding, and autocomplete responses are cached in memory by default.
 
 #### Methods
 
@@ -69,6 +80,8 @@ Calculate a route between two points.
 const result = await nav.route({
   origin: { lat: 5.6, lng: -0.2 },
   destination: { lat: 5.5, lng: -0.1 },
+  waypoints: [{ lat: 5.58, lng: -0.18 }],
+  mode: 'walk',     // Optional: 'drive' | 'walk' | 'bike'
   maneuvers: true,  // Optional: include turn-by-turn
   traffic: true     // Optional: consider traffic
 })
@@ -120,6 +133,10 @@ const updated = await nav.recalculateETA(
   { traffic: true }
 )
 ```
+
+##### `clearCache(): void`
+
+Clear the in-memory cache for geocoding, reverse geocoding, and autocomplete results.
 
 ##### `getLastDriverLocation(): LatLng | null`
 
@@ -294,8 +311,11 @@ interface RouteResult {
 interface RouteOptions {
   origin: LatLng
   destination: LatLng
+  waypoints?: LatLng[]
+  mode?: 'drive' | 'walk' | 'bike'
   maneuvers?: boolean
   traffic?: boolean
+  shortest?: boolean
 }
 ```
 

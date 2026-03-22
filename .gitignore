@@ -5,6 +5,9 @@ dist
 *.log
 .DS_Store
 .turbo
+.chrome-headless
+.corepack
+.pnpm-store
 
 # Generated files
 packages/web/src/styles.ts

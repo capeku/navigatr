@@ -1,4 +1,4 @@
-import type { LatLng, Maneuver, RouteResult, AlternateRoute } from '@navigatr/core'
+import type { LatLng, Maneuver, RouteResult, AlternateRoute, BaseMapStylePreset } from '@navigatr/core'
 
 export interface MapConfig {
   container: string
@@ -6,6 +6,8 @@ export interface MapConfig {
   zoom?: number
   pitch?: number
   bearing?: number
+  stylePreset?: BaseMapStylePreset
+  styleUrl?: string
 }
 
 export interface MarkerOptions {
