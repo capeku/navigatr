@@ -1,17 +1,36 @@
 <script setup lang="ts">
-import type { LatLng, RouteResult, NavigatrMap, NavigationEvent } from '@navigatr/web'
+import type {
+  LatLng,
+  RouteResult,
+  NavigatrMap,
+  NavigationEvent,
+  BaseMapStylePreset,
+  NavigatrMarker,
+  AlternateRoute
+} from '@navigatr/web'
 
 const props = defineProps<{
   route: RouteResult | null
+  alternateRoutes?: AlternateRoute[]
+  origin: LatLng
+  destination: LatLng
+  waypoints: LatLng[]
+  baseMapStyle: BaseMapStylePreset
+  isPickingStopFromMap?: boolean
 }>()
 
 const emit = defineEmits<{
   'navigation-event': [event: NavigationEvent]
+  'map-clicked': [location: LatLng]
+  'switch-route': [index: number]
 }>()
 
 let map: NavigatrMap | null = null
 let simulationInterval: ReturnType<typeof setInterval> | null = null
 let currentPointIndex = 0
+let routeMarkers: NavigatrMarker[] = []
+let removeMapClickListener: (() => void) | null = null
+let removeAlternateRouteClickListener: (() => void) | null = null
 
 const isNavigating = ref(false)
 const isPaused = ref(false)
@@ -19,6 +38,50 @@ const progress = ref(0)
 const currentInstruction = ref('')
 const distanceRemaining = ref('')
 const speed = ref(30) // km/h
+
+function syncMarkers() {
+  routeMarkers.forEach((marker) => marker.remove())
+  routeMarkers = []
+
+  if (!map) return
+
+  routeMarkers.push(
+    map.addMarker({
+      ...props.origin,
+      label: 'Origin'
+    })
+  )
+
+  props.waypoints.forEach((waypoint, index) => {
+    routeMarkers.push(
+      map!.addMarker({
+        ...waypoint,
+        label: `Stop ${index + 1}`
+      })
+    )
+  })
+
+  routeMarkers.push(
+    map.addMarker({
+      ...props.destination,
+      label: 'Destination'
+    })
+  )
+}
+
+function drawRouteState(route: RouteResult | null) {
+  if (!map) return
+
+  map.clearRoute()
+  if (!route) return
+
+  map.drawRoute(route.polyline)
+  map.fitRoute(route.polyline)
+
+  if (props.alternateRoutes && props.alternateRoutes.length > 0) {
+    map.drawAlternateRoutes(props.alternateRoutes)
+  }
+}
 
 onMounted(async () => {
   const { Navigatr } = await import('@navigatr/web')
@@ -29,7 +92,16 @@ onMounted(async () => {
     center: { lat: 5.6037, lng: -0.1870 },
     zoom: 12,
     pitch: 0,
-    bearing: 0
+    bearing: 0,
+    stylePreset: props.baseMapStyle
+  })
+
+  removeMapClickListener = map.onClick((location) => {
+    emit('map-clicked', location)
+  })
+
+  removeAlternateRouteClickListener = map.onAlternateRouteClick((index) => {
+    emit('switch-route', index)
   })
 
   // Listen for navigation events
@@ -49,29 +121,33 @@ onMounted(async () => {
 
   // Draw route if already available
   if (props.route) {
-    map.drawRoute(props.route.polyline)
-    map.fitRoute(props.route.polyline)
+    drawRouteState(props.route)
+    syncMarkers()
     if (props.route.maneuvers?.length) {
       currentInstruction.value = props.route.maneuvers[0].instruction
     }
   }
 })
 
-watch(() => props.route, (newRoute) => {
-  if (!map || !newRoute) return
+watch(() => [props.route, props.alternateRoutes] as const, ([newRoute]) => {
+  if (!map) return
 
-  map.drawRoute(newRoute.polyline)
-  map.fitRoute(newRoute.polyline)
+  drawRouteState(newRoute)
+  syncMarkers()
 
   // Reset state
   currentPointIndex = 0
   progress.value = 0
   currentInstruction.value = ''
 
-  if (newRoute.maneuvers?.length) {
+  if (newRoute?.maneuvers?.length) {
     currentInstruction.value = newRoute.maneuvers[0].instruction
   }
 })
+
+watch(() => [props.origin, props.destination, props.waypoints], () => {
+  syncMarkers()
+}, { deep: true })
 
 function simulateRoute() {
   if (!map || !props.route) return
@@ -169,6 +245,12 @@ function haversineDistance(p1: LatLng, p2: LatLng): number {
 
 onUnmounted(() => {
   stopSimulation()
+  removeMapClickListener?.()
+  removeMapClickListener = null
+  removeAlternateRouteClickListener?.()
+  removeAlternateRouteClickListener = null
+  routeMarkers.forEach((marker) => marker.remove())
+  routeMarkers = []
 })
 
 defineExpose({
@@ -181,7 +263,11 @@ defineExpose({
 
 <template>
   <div class="navigation-demo">
-    <div id="nav-map" class="map-container"></div>
+    <div
+      id="nav-map"
+      class="map-container"
+      :class="{ 'map-container--picking': isPickingStopFromMap }"
+    ></div>
 
     <!-- Navigation HUD -->
     <div v-if="isNavigating" class="nav-hud">
@@ -204,6 +290,10 @@ defineExpose({
 
     <!-- Controls -->
     <div class="controls">
+      <div v-if="isPickingStopFromMap" class="map-pick-banner">
+        Click anywhere on the map to add the next stop.
+      </div>
+
       <div class="speed-control">
         <label>Speed: {{ speed }} km/h</label>
         <input type="range" v-model.number="speed" min="10" max="120" step="5" :disabled="isNavigating" />
@@ -242,6 +332,10 @@ defineExpose({
   position: absolute;
   top: 0;
   left: 0;
+}
+
+.map-container--picking {
+  cursor: crosshair;
 }
 
 .nav-hud {
@@ -314,6 +408,16 @@ defineExpose({
   backdrop-filter: blur(10px);
   border-radius: 16px;
   padding: 16px;
+}
+
+.map-pick-banner {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 255, 148, 0.14);
+  color: #d9ffef;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .speed-control {

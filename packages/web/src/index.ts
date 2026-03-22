@@ -4,13 +4,19 @@ import { createMap } from './map'
 import { RideSession } from './ride'
 import type { RideConfig } from './ride'
 import type { MapConfig, NavigatrMap, LocationUpdateCallback } from './types'
+import { BASE_MAP_STYLE_URLS, type BaseMapStyleConfig } from './baseMapStyle'
 
 export class Navigatr extends NavigatrCore {
   private locationCallbacks: LocationUpdateCallback[] = []
   private lastDriverLocation: LatLng | null = null
+  private readonly baseMapStyle: BaseMapStyleConfig
 
   constructor(config?: NavigatrConfig) {
     super(config)
+    this.baseMapStyle = {
+      stylePreset: config?.mapStylePreset,
+      styleUrl: config?.mapStyleUrl
+    }
   }
 
   /**
@@ -18,7 +24,11 @@ export class Navigatr extends NavigatrCore {
    * CSS is automatically injected - no external stylesheet needed.
    */
   map(params: MapConfig): NavigatrMap {
-    return createMap(params)
+    return createMap({
+      ...params,
+      stylePreset: params.stylePreset ?? this.baseMapStyle.stylePreset,
+      styleUrl: params.styleUrl ?? this.baseMapStyle.styleUrl
+    })
   }
 
   /**
@@ -123,17 +133,20 @@ export class Navigatr extends NavigatrCore {
   async recalculateETA(
     currentLocation: LatLng,
     destination: LatLng,
-    options?: { traffic?: boolean }
+    options?: { traffic?: boolean; mode?: 'drive' | 'walk' | 'bike' }
   ): Promise<RouteResult> {
     return this.route({
       origin: currentLocation,
       destination,
+      mode: options?.mode,
       traffic: options?.traffic
     })
   }
 }
 
 export { RideSession } from './ride'
+export { BASE_MAP_STYLE_URLS }
 export type { RideConfig, RidePhase } from './ride'
 export type { NavigatrMap, NavigatrMarker, MapConfig, MarkerOptions, DriverMarkerOptions, LocationUpdateCallback, RouteStyleOptions, NavigationEvent, NavigationEventCallback } from './types'
-export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, AlternateRoute } from '@navigatr/core'
+export type { BaseMapStyleConfig } from './baseMapStyle'
+export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, AlternateRoute, BaseMapStylePreset, RequestCacheConfig } from '@navigatr/core'

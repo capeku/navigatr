@@ -220,9 +220,18 @@ console.<span class="text-blue-400">log</span>(<span class="text-yellow-300">`Di
 <span class="text-purple-400">const</span> nav = <span class="text-purple-400">new</span> <span class="text-cyan-400">Navigatr</span>({
   <span class="text-cyan-300">valhallaUrl</span>: <span class="text-yellow-300">'https://your-valhalla-server.com'</span>,
   <span class="text-cyan-300">nominatimUrl</span>: <span class="text-yellow-300">'https://your-nominatim-server.com'</span>,
-  <span class="text-cyan-300">photonUrl</span>: <span class="text-yellow-300">'https://your-photon-server.com'</span>
+  <span class="text-cyan-300">nominatimFallbackUrls</span>: [<span class="text-yellow-300">'https://backup-nominatim-server.com'</span>],
+  <span class="text-cyan-300">photonUrl</span>: <span class="text-yellow-300">'https://your-photon-server.com'</span>,
+  <span class="text-cyan-300">photonFallbackUrls</span>: [<span class="text-yellow-300">'https://backup-photon-server.com'</span>],
+  <span class="text-cyan-300">cache</span>: {
+    <span class="text-cyan-300">ttlMs</span>: <span class="text-orange-400">300000</span>,
+    <span class="text-cyan-300">maxEntries</span>: <span class="text-orange-400">200</span>
+  }
 })</code></pre>
           </div>
+          <p class="text-gray-500 text-sm mt-3">
+            If the primary geocoding or autocomplete service fails, fallback URLs are tried in order. Successful location lookups are cached in memory by default.
+          </p>
         </div>
 
         <div class="mb-10">
@@ -288,6 +297,18 @@ console.<span class="text-blue-400">log</span>(<span class="text-yellow-300">`Di
                   <td class="py-3 px-4">
                     <code
                       class="text-black bg-accent/50 px-1.5 py-0.5 rounded text-xs"
+                      >waypoints</code
+                    >
+                  </td>
+                  <td class="py-3 px-4">LatLng[]</td>
+                  <td class="py-3 px-4 text-gray-500">
+                    Optional stopovers between origin and destination
+                  </td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-3 px-4">
+                    <code
+                      class="text-black bg-accent/50 px-1.5 py-0.5 rounded text-xs"
                       >maneuvers</code
                     >
                   </td>
@@ -334,6 +355,9 @@ console.<span class="text-blue-400">log</span>(<span class="text-yellow-300">`Di
             ><code class="font-mono text-sm text-gray-100"><span class="text-purple-400">const</span> route = <span class="text-purple-400">await</span> nav.<span class="text-blue-400">route</span>({
   <span class="text-cyan-300">origin</span>: { <span class="text-cyan-300">lat</span>: <span class="text-orange-400">5.5600</span>, <span class="text-cyan-300">lng</span>: <span class="text-orange-400">-0.2050</span> },
   <span class="text-cyan-300">destination</span>: { <span class="text-cyan-300">lat</span>: <span class="text-orange-400">5.6037</span>, <span class="text-cyan-300">lng</span>: <span class="text-orange-400">-0.1870</span> },
+  <span class="text-cyan-300">waypoints</span>: [
+    { <span class="text-cyan-300">lat</span>: <span class="text-orange-400">5.6111</span>, <span class="text-cyan-300">lng</span>: <span class="text-orange-400">-0.1815</span> }
+  ],
   <span class="text-cyan-300">maneuvers</span>: <span class="text-orange-400">true</span>
 })
 
@@ -878,6 +902,7 @@ nav.<span class="text-blue-400">setStyleFromPreset</span>(<span class="text-yell
 <span class="text-purple-400">interface</span> <span class="text-cyan-400">RouteOptions</span> {
   <span class="text-cyan-300">origin</span>: <span class="text-cyan-400">LatLng</span>
   <span class="text-cyan-300">destination</span>: <span class="text-cyan-400">LatLng</span>
+  <span class="text-cyan-300">waypoints</span>?: <span class="text-cyan-400">LatLng</span>[]
   <span class="text-cyan-300">maneuvers</span>?: <span class="text-green-400">boolean</span>
   <span class="text-cyan-300">traffic</span>?: <span class="text-green-400">boolean</span>
   <span class="text-cyan-300">shortest</span>?: <span class="text-green-400">boolean</span>

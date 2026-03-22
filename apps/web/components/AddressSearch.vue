@@ -22,6 +22,31 @@ const isSelecting = ref(false)
 
 let debounceTimer: ReturnType<typeof setTimeout>
 
+function formatSuggestionName(suggestion: AutocompleteResult): string {
+  if (suggestion.name) return suggestion.name
+  if (suggestion.street) return suggestion.street
+  return suggestion.displayName.split(',')[0]
+}
+
+function formatSuggestionDetail(suggestion: AutocompleteResult): string {
+  const displayName = suggestion.displayName.trim()
+  const primaryName = formatSuggestionName(suggestion).trim()
+
+  if (displayName && displayName !== primaryName) {
+    return displayName
+  }
+
+  const parts = [
+    suggestion.street,
+    suggestion.postcode,
+    suggestion.city,
+    suggestion.state,
+    suggestion.country
+  ].filter(Boolean)
+
+  return parts.join(', ')
+}
+
 watch(() => props.modelValue, (val) => {
   inputValue.value = val
 })
@@ -152,8 +177,8 @@ async function triggerSearch() {
           </svg>
         </span>
         <span class="suggestion-text">
-          <span class="suggestion-name">{{ suggestion.name || suggestion.displayName.split(',')[0] }}</span>
-          <span class="suggestion-detail">{{ suggestion.city ? `${suggestion.city}, ${suggestion.country}` : suggestion.country }}</span>
+          <span class="suggestion-name">{{ formatSuggestionName(suggestion) }}</span>
+          <span class="suggestion-detail">{{ formatSuggestionDetail(suggestion) }}</span>
         </span>
       </button>
     </div>
@@ -271,6 +296,7 @@ async function triggerSearch() {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  gap: 2px;
 }
 
 .suggestion-name {
@@ -285,8 +311,10 @@ async function triggerSearch() {
 .suggestion-detail {
   font-size: 10px;
   color: #666;
-  white-space: nowrap;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 </style>

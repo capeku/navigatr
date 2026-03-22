@@ -32,6 +32,18 @@ console.log(route.distanceText) // "3.2 km"
 console.log(route.polyline)     // Array of { lat, lng } coordinates
 ```
 
+## Multi-Stop Routing
+
+```ts
+const stopover = await nav.geocode({ address: '37 Military Hospital, Accra' })
+
+const route = await nav.route({
+  origin,
+  destination,
+  waypoints: [stopover]
+})
+```
+
 ## Turn-by-Turn Directions
 
 ```ts
@@ -46,6 +58,22 @@ for (const step of route.maneuvers) {
   console.log(step.distanceText)   // "200 m"
   console.log(step.type)           // "left"
 }
+```
+
+## Travel Modes
+
+```ts
+const walkRoute = await nav.route({
+  origin,
+  destination,
+  mode: 'walk'
+})
+
+const bikeRoute = await nav.route({
+  origin,
+  destination,
+  mode: 'bike'
+})
 ```
 
 ## Traffic-Aware Routing
@@ -63,8 +91,33 @@ const route = await nav.route({
 ```ts
 const nav = new NavigatrCore({
   valhallaUrl: 'https://your-valhalla-instance.com',
-  nominatimUrl: 'https://your-nominatim-instance.com'
+  nominatimUrl: 'https://your-nominatim-instance.com',
+  nominatimFallbackUrls: ['https://backup-nominatim.example.com'],
+  photonUrl: 'https://your-photon-instance.com',
+  photonFallbackUrls: ['https://backup-photon.example.com'],
+  cache: {
+    ttlMs: 5 * 60 * 1000,
+    maxEntries: 200
+  }
 })
+```
+
+If the primary geocoding or autocomplete service fails, Navigatr will retry the same request against the fallback URLs in order.
+
+## Request Caching
+
+Geocoding, reverse geocoding, and autocomplete responses are cached in memory by default for 5 minutes.
+
+```ts
+const nav = new NavigatrCore({
+  cache: {
+    enabled: true,
+    ttlMs: 10 * 60 * 1000,
+    maxEntries: 500
+  }
+})
+
+nav.clearCache()
 ```
 
 ## API
@@ -79,8 +132,11 @@ Get driving directions between two points.
 interface RouteOptions {
   origin: LatLng
   destination: LatLng
+  waypoints?: LatLng[]               // Optional stopovers between origin and destination
+  mode?: 'drive' | 'walk' | 'bike'  // Default: 'drive'
   maneuvers?: boolean  // Include turn-by-turn directions
   traffic?: boolean    // Use traffic-aware routing
+  shortest?: boolean   // Prefer shorter distance
 }
 ```
 

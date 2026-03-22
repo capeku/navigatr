@@ -52,7 +52,8 @@ Get directions between two points:
 ```ts
 const route = await nav.route({
   origin: { lat: 5.6037, lng: -0.1870 },
-  destination: { lat: 5.5913, lng: -0.1870 }
+  destination: { lat: 5.5913, lng: -0.1870 },
+  mode: 'drive'
 })
 
 console.log(route.durationText)   // "12 mins"
@@ -61,6 +62,32 @@ console.log(route.durationSeconds) // 720
 console.log(route.distanceMeters)  // 3200
 console.log(route.polyline)        // Array of {lat, lng} for drawing
 ```
+
+## Multi-Stop Routing
+
+Add stopovers between the start and end points:
+
+```ts
+const route = await nav.route({
+  origin,
+  destination,
+  waypoints: [
+    { lat: 5.6111, lng: -0.1815 } // 37 Military Hospital
+  ]
+})
+```
+
+## Travel Modes
+
+Choose the route type that fits the trip:
+
+```ts
+const driveRoute = await nav.route({ origin, destination, mode: 'drive' })
+const walkRoute = await nav.route({ origin, destination, mode: 'walk' })
+const bikeRoute = await nav.route({ origin, destination, mode: 'bike' })
+```
+
+`drive` is the default if you do not provide a mode.
 
 ## Drawing Routes
 
@@ -178,8 +205,33 @@ Use your own Valhalla/Nominatim instances:
 ```ts
 const nav = new Navigatr({
   valhallaUrl: 'https://your-valhalla.example.com',
-  nominatimUrl: 'https://your-nominatim.example.com'
+  nominatimUrl: 'https://your-nominatim.example.com',
+  nominatimFallbackUrls: ['https://backup-nominatim.example.com'],
+  photonUrl: 'https://your-photon.example.com',
+  photonFallbackUrls: ['https://backup-photon.example.com'],
+  cache: {
+    ttlMs: 5 * 60 * 1000,
+    maxEntries: 200
+  }
 })
+```
+
+If the main geocoding or autocomplete provider is unavailable, Navigatr retries the request against the fallback URLs in order.
+
+## Request Caching
+
+Repeated geocode, reverse geocode, and autocomplete requests are cached in memory by default for 5 minutes.
+
+```ts
+const nav = new Navigatr({
+  cache: {
+    enabled: true,
+    ttlMs: 10 * 60 * 1000,
+    maxEntries: 500
+  }
+})
+
+nav.clearCache()
 ```
 
 ## Next Steps

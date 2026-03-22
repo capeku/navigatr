@@ -277,7 +277,8 @@ onMounted(async () => {
   map = nav.map({
     container: 'real-estate-map',
     center: { lat: 5.6037, lng: -0.1870 },
-    zoom: 13
+    zoom: 13,
+    stylePreset: 'bright'
   })
 
   map.onClick(handleMapClick)

@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "turbo dev",
-    "build": "turbo build"
+    "dev": "node scripts/workspace.mjs dev",
+    "build": "node scripts/workspace.mjs build"
   },
   "devDependencies": {
     "turbo": "^2.0.0",

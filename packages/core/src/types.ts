@@ -19,12 +19,20 @@ export interface Maneuver {
   startPoint: LatLng
 }
 
+export type TravelMode = 'drive' | 'walk' | 'bike'
+
 export interface RouteOptions {
   origin: LatLng
   destination: LatLng
+  waypoints?: LatLng[]
+  mode?: TravelMode
+  alternates?: boolean | number
   maneuvers?: boolean
   traffic?: boolean
   shortest?: boolean
+  avoidTolls?: boolean
+  avoidHighways?: boolean
+  avoidFerries?: boolean
 }
 
 export interface AlternateRoute {
@@ -57,10 +65,23 @@ export interface AutocompleteResult {
   postcode?: string
 }
 
+export type BaseMapStylePreset = 'liberty' | 'bright' | 'positron' | 'dark'
+
+export interface RequestCacheConfig {
+  enabled?: boolean
+  ttlMs?: number
+  maxEntries?: number
+}
+
 export interface NavigatrConfig {
   valhallaUrl?: string
   nominatimUrl?: string
+  nominatimFallbackUrls?: string[]
   photonUrl?: string
+  photonFallbackUrls?: string[]
+  cache?: RequestCacheConfig
+  mapStylePreset?: BaseMapStylePreset
+  mapStyleUrl?: string
 }
 
 // Map Customization Types
