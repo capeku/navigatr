@@ -1,4 +1,5 @@
-import type { AutocompleteResult } from './types'
+import { NavigatrError, type AutocompleteResult } from './types'
+import { fetchWithTimeout } from './utils/request'
 
 const DEFAULT_PHOTON_URL = 'https://photon.komoot.io'
 const USER_AGENT = 'navigatr-sdk/1.0'
@@ -49,24 +50,26 @@ function buildDisplayName(props: PhotonFeature['properties']): string {
 
 export async function autocomplete(
   query: string,
-  options: { limit?: number; photonUrl?: string } = {}
+  options: { limit?: number; photonUrl?: string; timeoutMs?: number } = {}
 ): Promise<AutocompleteResult[]> {
-  const { limit = 5, photonUrl = DEFAULT_PHOTON_URL } = options
+  const { limit = 5, photonUrl = DEFAULT_PHOTON_URL, timeoutMs } = options
 
   const params = new URLSearchParams({
     q: query,
     limit: limit.toString()
   })
 
-  const response = await fetch(`${photonUrl}/api/?${params}`, {
+  const response = await fetchWithTimeout(`${photonUrl}/api/?${params}`, {
     headers: {
       'User-Agent': USER_AGENT
     }
-  })
+  }, { timeoutMs })
 
   if (!response.ok) {
-    throw new Error(
-      `Photon autocomplete failed: ${response.status} ${response.statusText}`
+    throw new NavigatrError(
+      'HTTP_ERROR',
+      `Photon autocomplete failed: ${response.status} ${response.statusText}`,
+      { status: response.status }
     )
   }
 

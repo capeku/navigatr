@@ -136,4 +136,5 @@ export class Navigatr extends NavigatrCore {
 export { RideSession } from './ride'
 export type { RideConfig, RidePhase } from './ride'
 export type { NavigatrMap, NavigatrMarker, MapConfig, MarkerOptions, DriverMarkerOptions, LocationUpdateCallback, RouteStyleOptions, NavigationEvent, NavigationEventCallback } from './types'
-export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, AlternateRoute } from '@navigatr/core'
+export { NavigatrError } from '@navigatr/core'
+export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, AlternateRoute, NavigatrErrorCode } from '@navigatr/core'

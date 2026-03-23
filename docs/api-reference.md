@@ -26,6 +26,8 @@ const nav = new Navigatr(config?)
 interface NavigatrConfig {
   valhallaUrl?: string   // Default: 'https://valhalla1.openstreetmap.de'
   nominatimUrl?: string  // Default: 'https://nominatim.openstreetmap.org'
+  photonUrl?: string     // Default: 'https://photon.komoot.io'
+  requestTimeoutMs?: number // Optional request timeout for all API calls
 }
 ```
 
@@ -296,8 +298,22 @@ interface RouteOptions {
   destination: LatLng
   maneuvers?: boolean
   traffic?: boolean
+  shortest?: boolean
 }
 ```
+
+### NavigatrError
+
+```ts
+type NavigatrErrorCode = 'NETWORK_ERROR' | 'HTTP_ERROR' | 'NO_RESULTS' | 'TIMEOUT'
+
+class NavigatrError extends Error {
+  code: NavigatrErrorCode
+  status?: number
+}
+```
+
+All network-facing methods (`route`, `geocode`, `reverseGeocode`, and `autocomplete`) can throw `NavigatrError`.
 
 ### Maneuver
 

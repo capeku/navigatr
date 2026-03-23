@@ -108,6 +108,22 @@ firebase.database().ref(`rides/${rideId}/driverLocation`).on('value', (snap) => 
 })
 ```
 
+## Error Handling
+
+```ts
+import { Navigatr, NavigatrError } from '@navigatr/web'
+
+const nav = new Navigatr({ requestTimeoutMs: 10000 })
+
+try {
+  await nav.geocode({ address: 'Unknown Place' })
+} catch (error) {
+  if (error instanceof NavigatrError) {
+    console.log(error.code) // NETWORK_ERROR | HTTP_ERROR | NO_RESULTS | TIMEOUT
+  }
+}
+```
+
 ## API
 
 ### Navigatr
