@@ -26,6 +26,7 @@ const nav = new Navigatr(config?)
 interface NavigatrConfig {
   valhallaUrl?: string   // Default: 'https://valhalla1.openstreetmap.de'
   nominatimUrl?: string  // Default: 'https://nominatim.openstreetmap.org'
+  photonUrl?: string     // Default: 'https://photon.komoot.io'
 }
 ```
 
@@ -33,7 +34,7 @@ interface NavigatrConfig {
 
 ##### `map(params): NavigatrMap`
 
-Create a Leaflet map.
+Create a MapLibre GL map.
 
 ```ts
 const map = nav.map({
@@ -61,6 +62,17 @@ const result = await nav.reverseGeocode({ lat: 5.6037, lng: -0.1870 })
 // { lat: 5.6037, lng: -0.1870, displayName: 'Accra Mall, ...' }
 ```
 
+##### `autocomplete(params): Promise<AutocompleteResult[]>`
+
+Search places as the user types.
+
+```ts
+const results = await nav.autocomplete({
+  query: 'Accra Mall',
+  limit: 5 // Optional, default: 5
+})
+```
+
 ##### `route(options): Promise<RouteResult>`
 
 Calculate a route between two points.
@@ -70,9 +82,12 @@ const result = await nav.route({
   origin: { lat: 5.6, lng: -0.2 },
   destination: { lat: 5.5, lng: -0.1 },
   maneuvers: true,  // Optional: include turn-by-turn
-  traffic: true     // Optional: consider traffic
+  traffic: true,    // Optional: consider traffic
+  shortest: true    // Optional: prioritize shorter distance
 })
 ```
+
+`route()` may also return alternate routes in `result.alternates` when available from the routing provider.
 
 ##### `createRide(config): RideSession`
 
@@ -285,6 +300,7 @@ interface RouteResult {
   distanceText: string      // "3.2 km"
   polyline: LatLng[]
   maneuvers?: Maneuver[]    // If requested
+  alternates?: AlternateRoute[]
 }
 ```
 
@@ -296,6 +312,19 @@ interface RouteOptions {
   destination: LatLng
   maneuvers?: boolean
   traffic?: boolean
+  shortest?: boolean
+}
+```
+
+### AlternateRoute
+
+```ts
+interface AlternateRoute {
+  durationSeconds: number
+  durationText: string
+  distanceMeters: number
+  distanceText: string
+  polyline: LatLng[]
 }
 ```
 
@@ -339,6 +368,8 @@ interface MapConfig {
   container: string    // DOM element ID
   center: LatLng
   zoom?: number        // Default: 13
+  pitch?: number       // Optional initial tilt
+  bearing?: number     // Optional initial rotation
 }
 ```
 
