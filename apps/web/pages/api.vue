@@ -107,7 +107,8 @@ onMounted(() => {
 <span class="text-gray-500">// Calculate a route</span>
 <span class="text-purple-400">const</span> route = <span class="text-purple-400">await</span> nav.<span class="text-blue-400">route</span>({
   <span class="text-cyan-300">origin</span>: { <span class="text-cyan-300">lat</span>: <span class="text-orange-400">5.5600</span>, <span class="text-cyan-300">lng</span>: <span class="text-orange-400">-0.2050</span> },
-  <span class="text-cyan-300">destination</span>: { <span class="text-cyan-300">lat</span>: <span class="text-orange-400">5.6037</span>, <span class="text-cyan-300">lng</span>: <span class="text-orange-400">-0.1870</span> }
+  <span class="text-cyan-300">destination</span>: { <span class="text-cyan-300">lat</span>: <span class="text-orange-400">5.6037</span>, <span class="text-cyan-300">lng</span>: <span class="text-orange-400">-0.1870</span> },
+  <span class="text-cyan-300">mode</span>: <span class="text-yellow-300">'walk'</span>
 })
 
 <span class="text-gray-500">// Draw the route on the map</span>
@@ -127,6 +128,13 @@ console.<span class="text-blue-400">log</span>(<span class="text-yellow-300">`Di
               ><span
                 ><strong class="text-gray-900">Routing</strong> - Turn-by-turn
                 directions powered by Valhalla</span
+              >
+            </li>
+            <li class="flex items-start gap-3 text-gray-500">
+              <span class="w-2 h-2 bg-accent rounded-full mt-2 shrink-0"></span
+              ><span
+                ><strong class="text-gray-900">Travel Modes</strong> - Route by
+                drive, walk, or bike using the same API</span
               >
             </li>
             <li class="flex items-start gap-3 text-gray-500">
@@ -288,6 +296,18 @@ console.<span class="text-blue-400">log</span>(<span class="text-yellow-300">`Di
                   <td class="py-3 px-4">
                     <code
                       class="text-black bg-accent/50 px-1.5 py-0.5 rounded text-xs"
+                      >mode</code
+                    >
+                  </td>
+                  <td class="py-3 px-4">'drive' | 'walk' | 'bike'</td>
+                  <td class="py-3 px-4 text-gray-500">
+                    Select the routing profile (default: 'drive')
+                  </td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-3 px-4">
+                    <code
+                      class="text-black bg-accent/50 px-1.5 py-0.5 rounded text-xs"
                       >maneuvers</code
                     >
                   </td>
@@ -334,6 +354,7 @@ console.<span class="text-blue-400">log</span>(<span class="text-yellow-300">`Di
             ><code class="font-mono text-sm text-gray-100"><span class="text-purple-400">const</span> route = <span class="text-purple-400">await</span> nav.<span class="text-blue-400">route</span>({
   <span class="text-cyan-300">origin</span>: { <span class="text-cyan-300">lat</span>: <span class="text-orange-400">5.5600</span>, <span class="text-cyan-300">lng</span>: <span class="text-orange-400">-0.2050</span> },
   <span class="text-cyan-300">destination</span>: { <span class="text-cyan-300">lat</span>: <span class="text-orange-400">5.6037</span>, <span class="text-cyan-300">lng</span>: <span class="text-orange-400">-0.1870</span> },
+  <span class="text-cyan-300">mode</span>: <span class="text-yellow-300">'bike'</span>,
   <span class="text-cyan-300">maneuvers</span>: <span class="text-orange-400">true</span>
 })
 
@@ -878,6 +899,7 @@ nav.<span class="text-blue-400">setStyleFromPreset</span>(<span class="text-yell
 <span class="text-purple-400">interface</span> <span class="text-cyan-400">RouteOptions</span> {
   <span class="text-cyan-300">origin</span>: <span class="text-cyan-400">LatLng</span>
   <span class="text-cyan-300">destination</span>: <span class="text-cyan-400">LatLng</span>
+  <span class="text-cyan-300">mode</span>?: <span class="text-yellow-300">'drive'</span> | <span class="text-yellow-300">'walk'</span> | <span class="text-yellow-300">'bike'</span>
   <span class="text-cyan-300">maneuvers</span>?: <span class="text-green-400">boolean</span>
   <span class="text-cyan-300">traffic</span>?: <span class="text-green-400">boolean</span>
   <span class="text-cyan-300">shortest</span>?: <span class="text-green-400">boolean</span>

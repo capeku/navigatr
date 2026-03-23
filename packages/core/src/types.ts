@@ -19,9 +19,12 @@ export interface Maneuver {
   startPoint: LatLng
 }
 
+export type TravelMode = 'drive' | 'walk' | 'bike'
+
 export interface RouteOptions {
   origin: LatLng
   destination: LatLng
+  mode?: TravelMode
   maneuvers?: boolean
   traffic?: boolean
   shortest?: boolean

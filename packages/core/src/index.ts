@@ -1,4 +1,4 @@
-import type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, MapStyle, MapStylePreset, MapColors, LayerVisibility, MarkerStyle, PolylineStyle, MapTheme, AlternateRoute } from './types'
+import type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, MapStyle, MapStylePreset, MapColors, LayerVisibility, MarkerStyle, PolylineStyle, MapTheme, AlternateRoute, TravelMode } from './types'
 import { getRoute } from './route'
 import { geocode as geocodeAddress, reverseGeocode as reverseGeocodeCoords } from './geocode'
 import { autocomplete as autocompleteSearch } from './autocomplete'
@@ -79,5 +79,5 @@ export class NavigatrCore {
   }
 }
 
-export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, MapStyle, MapStylePreset, MapColors, LayerVisibility, MarkerStyle, PolylineStyle, MapTheme, AlternateRoute }
+export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, MapStyle, MapStylePreset, MapColors, LayerVisibility, MarkerStyle, PolylineStyle, MapTheme, AlternateRoute, TravelMode }
 export { MAP_STYLE_PRESETS } from './mapStyle'

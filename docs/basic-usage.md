@@ -48,7 +48,8 @@ Get directions between two points:
 ```ts
 const route = await nav.route({
   origin: { lat: 5.6037, lng: -0.1870 },
-  destination: { lat: 5.5913, lng: -0.1870 }
+  destination: { lat: 5.5913, lng: -0.1870 },
+  mode: 'drive'
 })
 
 console.log(route.durationText)   // "12 mins"
@@ -58,6 +59,18 @@ console.log(route.distanceMeters)  // 3200
 console.log(route.polyline)        // Array of {lat, lng} for drawing
 console.log(route.alternates)      // Optional alternate routes (when returned by provider)
 ```
+
+## Travel Modes
+
+Choose the route profile that fits the trip:
+
+```ts
+const driveRoute = await nav.route({ origin, destination, mode: 'drive' })
+const walkRoute = await nav.route({ origin, destination, mode: 'walk' })
+const bikeRoute = await nav.route({ origin, destination, mode: 'bike' })
+```
+
+`drive` is used by default if you do not provide a mode.
 
 ## Drawing Routes
 

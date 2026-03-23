@@ -44,6 +44,22 @@ const results = await nav.autocomplete({
 console.log(results[0]?.displayName)
 ```
 
+## Travel Modes
+
+```ts
+const walkRoute = await nav.route({
+  origin,
+  destination,
+  mode: 'walk'
+})
+
+const bikeRoute = await nav.route({
+  origin,
+  destination,
+  mode: 'bike'
+})
+```
+
 ## Turn-by-Turn Directions
 
 ```ts
@@ -92,6 +108,7 @@ Get driving directions between two points.
 interface RouteOptions {
   origin: LatLng
   destination: LatLng
+  mode?: 'drive' | 'walk' | 'bike'  // Default: 'drive'
   maneuvers?: boolean  // Include turn-by-turn directions
   traffic?: boolean    // Use traffic-aware routing
   shortest?: boolean   // Prefer shortest path over fastest
