@@ -1,4 +1,5 @@
-import type { GeocodeResult } from './types'
+import { NavigatrError, type GeocodeResult } from './types'
+import { fetchWithTimeout, type RequestOptions } from './utils/request'
 
 const DEFAULT_NOMINATIM_URL = 'https://nominatim.openstreetmap.org'
 const USER_AGENT = 'navigatr-sdk/1.0'
@@ -17,7 +18,8 @@ interface NominatimReverseResult {
 
 export async function geocode(
   address: string,
-  nominatimUrl: string = DEFAULT_NOMINATIM_URL
+  nominatimUrl: string = DEFAULT_NOMINATIM_URL,
+  requestOptions: RequestOptions = {}
 ): Promise<GeocodeResult> {
   const params = new URLSearchParams({
     q: address,
@@ -25,22 +27,24 @@ export async function geocode(
     limit: '1'
   })
 
-  const response = await fetch(`${nominatimUrl}/search?${params}`, {
+  const response = await fetchWithTimeout(`${nominatimUrl}/search?${params}`, {
     headers: {
       'User-Agent': USER_AGENT
     }
-  })
+  }, requestOptions)
 
   if (!response.ok) {
-    throw new Error(
-      `Nominatim geocoding failed: ${response.status} ${response.statusText}`
+    throw new NavigatrError(
+      'HTTP_ERROR',
+      `Nominatim geocoding failed: ${response.status} ${response.statusText}`,
+      { status: response.status }
     )
   }
 
   const results: NominatimSearchResult[] = await response.json()
 
   if (results.length === 0) {
-    throw new Error(`No results found for address: ${address}`)
+    throw new NavigatrError('NO_RESULTS', `No results found for address: ${address}`)
   }
 
   const result = results[0]
@@ -54,7 +58,8 @@ export async function geocode(
 export async function reverseGeocode(
   lat: number,
   lng: number,
-  nominatimUrl: string = DEFAULT_NOMINATIM_URL
+  nominatimUrl: string = DEFAULT_NOMINATIM_URL,
+  requestOptions: RequestOptions = {}
 ): Promise<GeocodeResult> {
   const params = new URLSearchParams({
     lat: lat.toString(),
@@ -62,22 +67,24 @@ export async function reverseGeocode(
     format: 'json'
   })
 
-  const response = await fetch(`${nominatimUrl}/reverse?${params}`, {
+  const response = await fetchWithTimeout(`${nominatimUrl}/reverse?${params}`, {
     headers: {
       'User-Agent': USER_AGENT
     }
-  })
+  }, requestOptions)
 
   if (!response.ok) {
-    throw new Error(
-      `Nominatim reverse geocoding failed: ${response.status} ${response.statusText}`
+    throw new NavigatrError(
+      'HTTP_ERROR',
+      `Nominatim reverse geocoding failed: ${response.status} ${response.statusText}`,
+      { status: response.status }
     )
   }
 
   const result: NominatimReverseResult = await response.json()
 
   if (!result.lat || !result.lon) {
-    throw new Error(`No results found for coordinates: ${lat}, ${lng}`)
+    throw new NavigatrError('NO_RESULTS', `No results found for coordinates: ${lat}, ${lng}`)
   }
 
   return {

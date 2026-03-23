@@ -1,4 +1,5 @@
-import type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, MapStyle, MapStylePreset, MapColors, LayerVisibility, MarkerStyle, PolylineStyle, MapTheme, AlternateRoute } from './types'
+import type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, MapStyle, MapStylePreset, MapColors, LayerVisibility, MarkerStyle, PolylineStyle, MapTheme, AlternateRoute, NavigatrErrorCode } from './types'
+import { NavigatrError } from './types'
 import { getRoute } from './route'
 import { geocode as geocodeAddress, reverseGeocode as reverseGeocodeCoords } from './geocode'
 import { autocomplete as autocompleteSearch } from './autocomplete'
@@ -8,29 +9,35 @@ export class NavigatrCore {
   private valhallaUrl: string
   private nominatimUrl: string
   private photonUrl: string
+  private requestTimeoutMs?: number
   private currentStyle: MapStyle
 
   constructor(config?: NavigatrConfig) {
     this.valhallaUrl = config?.valhallaUrl ?? 'https://valhalla1.openstreetmap.de'
     this.nominatimUrl = config?.nominatimUrl ?? 'https://nominatim.openstreetmap.org'
     this.photonUrl = config?.photonUrl ?? 'https://photon.komoot.io'
+    this.requestTimeoutMs = config?.requestTimeoutMs
     this.currentStyle = mapStyleModule.createStyle()
   }
 
   async route(params: RouteOptions): Promise<RouteResult> {
-    return getRoute(params, this.valhallaUrl)
+    return getRoute(params, this.valhallaUrl, { timeoutMs: this.requestTimeoutMs })
   }
 
   async geocode(params: { address: string }): Promise<GeocodeResult> {
-    return geocodeAddress(params.address, this.nominatimUrl)
+    return geocodeAddress(params.address, this.nominatimUrl, { timeoutMs: this.requestTimeoutMs })
   }
 
   async reverseGeocode(params: { lat: number; lng: number }): Promise<GeocodeResult> {
-    return reverseGeocodeCoords(params.lat, params.lng, this.nominatimUrl)
+    return reverseGeocodeCoords(params.lat, params.lng, this.nominatimUrl, { timeoutMs: this.requestTimeoutMs })
   }
 
   async autocomplete(params: { query: string; limit?: number }): Promise<AutocompleteResult[]> {
-    return autocompleteSearch(params.query, { limit: params.limit, photonUrl: this.photonUrl })
+    return autocompleteSearch(params.query, {
+      limit: params.limit,
+      photonUrl: this.photonUrl,
+      timeoutMs: this.requestTimeoutMs
+    })
   }
 
   // Map Customization API
@@ -79,5 +86,6 @@ export class NavigatrCore {
   }
 }
 
-export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, MapStyle, MapStylePreset, MapColors, LayerVisibility, MarkerStyle, PolylineStyle, MapTheme, AlternateRoute }
+export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, MapStyle, MapStylePreset, MapColors, LayerVisibility, MarkerStyle, PolylineStyle, MapTheme, AlternateRoute, NavigatrErrorCode }
+export { NavigatrError }
 export { MAP_STYLE_PRESETS } from './mapStyle'

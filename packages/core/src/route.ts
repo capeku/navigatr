@@ -1,6 +1,7 @@
-import type { LatLng, RouteResult, RouteOptions, Maneuver, AlternateRoute } from './types'
+import { NavigatrError, type LatLng, type RouteResult, type RouteOptions, type Maneuver, type AlternateRoute } from './types'
 import { decodePolyline } from './utils/polyline'
 import { formatDuration, formatDistance } from './utils/format'
+import { fetchWithTimeout, type RequestOptions } from './utils/request'
 
 const DEFAULT_VALHALLA_URL = 'https://valhalla1.openstreetmap.de'
 
@@ -86,7 +87,8 @@ const MANEUVER_TYPES: Record<number, string> = {
 
 export async function getRoute(
   options: RouteOptions,
-  valhallaUrl: string = DEFAULT_VALHALLA_URL
+  valhallaUrl: string = DEFAULT_VALHALLA_URL,
+  requestOptions: RequestOptions = {}
 ): Promise<RouteResult> {
   const { origin, destination, maneuvers: includeManeuvers, traffic, shortest } = options
 
@@ -109,18 +111,20 @@ export async function getRoute(
     }
   }
 
-  const response = await fetch(`${valhallaUrl}/route`, {
+  const response = await fetchWithTimeout(`${valhallaUrl}/route`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(requestBody)
-  })
+  }, requestOptions)
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => 'Unknown error')
-    throw new Error(
-      `Valhalla routing failed: ${response.status} ${response.statusText} - ${errorText}`
+    throw new NavigatrError(
+      'HTTP_ERROR',
+      `Valhalla routing failed: ${response.status} ${response.statusText} - ${errorText}`,
+      { status: response.status }
     )
   }
 

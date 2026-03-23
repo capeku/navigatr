@@ -61,6 +61,31 @@ export interface NavigatrConfig {
   valhallaUrl?: string
   nominatimUrl?: string
   photonUrl?: string
+  requestTimeoutMs?: number
+}
+
+export type NavigatrErrorCode =
+  | 'NETWORK_ERROR'
+  | 'HTTP_ERROR'
+  | 'NO_RESULTS'
+  | 'TIMEOUT'
+
+export class NavigatrError extends Error {
+  code: NavigatrErrorCode
+  status?: number
+  cause?: unknown
+
+  constructor(
+    code: NavigatrErrorCode,
+    message: string,
+    options?: { status?: number; cause?: unknown }
+  ) {
+    super(message)
+    this.name = 'NavigatrError'
+    this.code = code
+    this.status = options?.status
+    this.cause = options?.cause
+  }
 }
 
 // Map Customization Types

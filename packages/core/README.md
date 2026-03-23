@@ -63,8 +63,31 @@ const route = await nav.route({
 ```ts
 const nav = new NavigatrCore({
   valhallaUrl: 'https://your-valhalla-instance.com',
-  nominatimUrl: 'https://your-nominatim-instance.com'
+  nominatimUrl: 'https://your-nominatim-instance.com',
+  photonUrl: 'https://your-photon-instance.com',
+  requestTimeoutMs: 10000
 })
+```
+
+## Error Handling
+
+Core methods throw `NavigatrError` with a stable `code` value:
+
+- `NETWORK_ERROR`
+- `HTTP_ERROR`
+- `NO_RESULTS`
+- `TIMEOUT`
+
+```ts
+import { NavigatrCore, NavigatrError } from '@navigatr/core'
+
+try {
+  await nav.geocode({ address: 'Unknown Place' })
+} catch (error) {
+  if (error instanceof NavigatrError) {
+    console.log(error.code) // e.g. 'NO_RESULTS'
+  }
+}
 ```
 
 ## API
