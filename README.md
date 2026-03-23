@@ -128,7 +128,8 @@ Then configure Navigatr to use your instances:
 ```ts
 const nav = new Navigatr({
   valhallaUrl: 'https://your-valhalla.example.com',
-  nominatimUrl: 'https://your-nominatim.example.com'
+  nominatimUrl: 'https://your-nominatim.example.com',
+  photonUrl: 'https://your-photon.example.com'
 })
 ```
 
