@@ -1,8 +1,13 @@
-import type { LatLng, RouteResult, RouteOptions, Maneuver, AlternateRoute } from './types'
+import type { LatLng, RouteResult, RouteOptions, Maneuver, AlternateRoute, TravelMode } from './types'
 import { decodePolyline } from './utils/polyline'
 import { formatDuration, formatDistance } from './utils/format'
 
 const DEFAULT_VALHALLA_URL = 'https://valhalla1.openstreetmap.de'
+const MODE_TO_COSTING: Record<TravelMode, 'auto' | 'pedestrian' | 'bicycle'> = {
+  drive: 'auto',
+  walk: 'pedestrian',
+  bike: 'bicycle'
+}
 
 interface ValhallaLocation {
   lon: number
@@ -21,12 +26,10 @@ interface ValhallaManeuver {
 interface ValhallaRequest {
   locations: ValhallaLocation[]
   costing: string
-  costing_options?: {
-    auto?: {
+  costing_options?: Record<string, {
       use_traffic?: number
       shortest?: boolean
-    }
-  }
+    }>
   directions_options: {
     units: string
   }
@@ -172,10 +175,12 @@ export async function getRoute(
     origin,
     destination,
     waypoints = [],
+    mode = 'drive',
     maneuvers: includeManeuvers,
     traffic,
     shortest
   } = options
+  const costing = MODE_TO_COSTING[mode]
 
   const requestBody: ValhallaRequest = {
     locations: [origin, ...waypoints, destination].map((location) => ({
@@ -183,15 +188,15 @@ export async function getRoute(
       lat: location.lat,
       type: 'break'
     })),
-    costing: 'auto',
+    costing,
     directions_options: { units: 'km' },
     alternates: 3
   }
 
   if (traffic || shortest) {
     requestBody.costing_options = {
-      auto: {
-        ...(traffic && { use_traffic: 1 }),
+      [costing]: {
+        ...(traffic && mode === 'drive' && { use_traffic: 1 }),
         ...(shortest && { shortest: true })
       }
     }

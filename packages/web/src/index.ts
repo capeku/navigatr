@@ -1,5 +1,5 @@
 import { NavigatrCore } from '@navigatr/core'
-import type { LatLng, NavigatrConfig, RouteResult } from '@navigatr/core'
+import type { LatLng, NavigatrConfig, RouteResult, TravelMode } from '@navigatr/core'
 import { createMap } from './map'
 import { RideSession } from './ride'
 import type { RideConfig } from './ride'
@@ -123,11 +123,12 @@ export class Navigatr extends NavigatrCore {
   async recalculateETA(
     currentLocation: LatLng,
     destination: LatLng,
-    options?: { traffic?: boolean }
+    options?: { traffic?: boolean; mode?: TravelMode }
   ): Promise<RouteResult> {
     return this.route({
       origin: currentLocation,
       destination,
+      mode: options?.mode,
       traffic: options?.traffic
     })
   }
@@ -136,4 +137,4 @@ export class Navigatr extends NavigatrCore {
 export { RideSession } from './ride'
 export type { RideConfig, RidePhase } from './ride'
 export type { NavigatrMap, NavigatrMarker, MapConfig, MarkerOptions, DriverMarkerOptions, LocationUpdateCallback, RouteStyleOptions, NavigationEvent, NavigationEventCallback } from './types'
-export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, AlternateRoute } from '@navigatr/core'
+export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, AlternateRoute, TravelMode } from '@navigatr/core'

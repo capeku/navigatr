@@ -5,14 +5,10 @@ This guide covers the fundamentals of using Navigatr for routing and geocoding.
 ## Installation
 
 ```bash
-npm install @navigatr/web leaflet
+npm install @navigatr/web
 ```
 
-Add Leaflet CSS to your HTML:
-
-```html
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-```
+No external map CSS is required. `@navigatr/web` injects MapLibre styles automatically.
 
 ## Creating a Map
 
@@ -52,7 +48,8 @@ Get directions between two points:
 ```ts
 const route = await nav.route({
   origin: { lat: 5.6037, lng: -0.1870 },
-  destination: { lat: 5.5913, lng: -0.1870 }
+  destination: { lat: 5.5913, lng: -0.1870 },
+  mode: 'drive'
 })
 
 console.log(route.durationText)   // "12 mins"
@@ -60,7 +57,20 @@ console.log(route.distanceText)   // "3.2 km"
 console.log(route.durationSeconds) // 720
 console.log(route.distanceMeters)  // 3200
 console.log(route.polyline)        // Array of {lat, lng} for drawing
+console.log(route.alternates)      // Optional alternate routes (when returned by provider)
 ```
+
+## Travel Modes
+
+Choose the route profile that fits the trip:
+
+```ts
+const driveRoute = await nav.route({ origin, destination, mode: 'drive' })
+const walkRoute = await nav.route({ origin, destination, mode: 'walk' })
+const bikeRoute = await nav.route({ origin, destination, mode: 'bike' })
+```
+
+`drive` is used by default if you do not provide a mode.
 
 ## Multi-Stop Routing
 
@@ -187,14 +197,23 @@ const route = await nav.route({ origin, destination })
 
 ## Custom API Endpoints
 
-Use your own Valhalla/Nominatim instances:
+Use your own service endpoints:
 
 ```ts
 const nav = new Navigatr({
   valhallaUrl: 'https://your-valhalla.example.com',
-  nominatimUrl: 'https://your-nominatim.example.com'
+  nominatimUrl: 'https://your-nominatim.example.com',
+  photonUrl: 'https://your-photon.example.com'
 })
 ```
+
+## Geocoding Best Practice
+
+Nominatim has strict rate limits (commonly around 1 req/sec on public infrastructure). For ride, delivery, and property flows:
+
+- Geocode the address once.
+- Store coordinates in your database.
+- Reuse coordinates for route recalculation and ETA updates.
 
 ## Next Steps
 

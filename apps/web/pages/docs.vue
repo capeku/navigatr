@@ -5,6 +5,7 @@ import type {
   NavigatrMarker,
   Navigatr,
   RouteResult,
+  TravelMode,
 } from "@navigatr/web";
 
 interface AutocompleteResult {
@@ -63,10 +64,17 @@ const countries = [
   { code: "FR", name: "France", flag: "" },
 ];
 
+const travelModeOptions: Array<{ id: TravelMode; label: string }> = [
+  { id: "drive", label: "Drive" },
+  { id: "walk", label: "Walk" },
+  { id: "bike", label: "Bike" },
+];
+
 const activeTab = ref<TabId>("route");
 const consoleOutput = ref<string[]>([]);
 const isRunning = ref(false);
 const selectedCountry = ref("");
+const travelMode = ref<TravelMode>("drive");
 const codeCopied = ref(false);
 const bottomPanelTab = ref<"console" | "code">("console");
 const showMobileEditor = ref(false);
@@ -133,6 +141,11 @@ const hasPendingRouteStops = computed(() =>
 );
 
 let nextRouteStopId = 1;
+const selectedTravelMode = computed(
+  () =>
+    travelModeOptions.find((option) => option.id === travelMode.value) ??
+    travelModeOptions[0],
+);
 
 const isTracking = ref(false);
 const trackingProgress = ref(0);
@@ -269,7 +282,8 @@ const generatedCode = computed(() => {
 
     return `const route = await nav.route({
   origin: ${JSON.stringify(originCoords.value ?? { lat: 5.6037, lng: -0.187 }, null, 2)},
-  destination: ${JSON.stringify(destinationCoords.value ?? { lat: 5.6226, lng: -0.1725 }, null, 2)}${waypointBlock}
+  destination: ${JSON.stringify(destinationCoords.value ?? { lat: 5.6226, lng: -0.1725 }, null, 2)},
+  mode: '${travelMode.value}'${waypointBlock}
 })`;
   }
 
@@ -336,7 +350,8 @@ const highlightedCode = computed(() => {
   <span class="text-cyan-300">destination</span>: {
     <span class="text-cyan-300">lat</span>: <span class="text-orange-400">${destination.lat}</span>,
     <span class="text-cyan-300">lng</span>: <span class="text-orange-400">${destination.lng}</span>
-  }${waypointLines}
+  },
+  <span class="text-cyan-300">mode</span>: <span class="text-yellow-300">'${travelMode.value}'</span>${waypointLines}
 })`;
   }
 
@@ -530,18 +545,21 @@ async function calculateRoute() {
   isRunning.value = true;
   stopTracking();
 
-  log(`nav.route({ origin, destination${routeWaypoints.value.length ? ", waypoints" : ""} })`);
+  log(`nav.route({ origin, destination, mode: '${travelMode.value}'${routeWaypoints.value.length ? ", waypoints" : ""} })`);
   try {
     const result = await nav.route({
       origin: originCoords.value,
       destination: destinationCoords.value,
       waypoints: routeWaypoints.value,
+      mode: travelMode.value,
     });
 
     const durationMins = Math.round(result.durationSeconds / 60);
     const distanceKm = (result.distanceMeters / 1000).toFixed(1);
 
     routeResult.value = {
+      mode: travelMode.value,
+      modeLabel: selectedTravelMode.value.label,
       durationMins,
       distanceKm,
       durationSeconds: result.durationSeconds,
@@ -553,6 +571,7 @@ async function calculateRoute() {
     if (selectedRouteStops.value.length > 0) {
       log(`  Stops: ${selectedRouteStops.value.length}`);
     }
+    log(`  Mode: ${selectedTravelMode.value.label}`);
     log(`  Duration: ${durationMins} min`);
     log(`  Distance: ${distanceKm} km`);
     log(`  Polyline: ${result.polyline.length} points`);
@@ -719,6 +738,12 @@ onMounted(async () => {
 onUnmounted(() => {
   stopTracking();
 });
+
+watch(travelMode, () => {
+  if (originCoords.value && destinationCoords.value) {
+    calculateRoute();
+  }
+});
 </script>
 
 <template>
@@ -786,6 +811,20 @@ onUnmounted(() => {
               </select>
             </div>
             <div class="flex flex-col gap-1.5">
+              <label class="text-xs text-gray-500 font-mono">mode</label>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  v-for="option in travelModeOptions"
+                  :key="option.id"
+                  class="px-3 py-2.5 rounded-md text-xs font-medium transition-all"
+                  :class="travelMode === option.id ? 'bg-accent/10 border border-accent text-accent' : 'bg-white border border-gray-200 text-gray-500'"
+                  @click="travelMode = option.id"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
+            <div class="flex flex-col gap-1.5">
               <label class="text-xs text-gray-500 font-mono">origin</label>
               <AddressSearch v-model="routeOriginInput" placeholder="Search..." :country-code="selectedCountry" @select="handleOriginSelect" />
             </div>
@@ -844,6 +883,10 @@ onUnmounted(() => {
                   <span class="text-2xl font-bold text-gray-900">{{ routeResult.stopCount || 0 }}</span>
                   <span class="text-xs uppercase text-gray-600">Stops</span>
                 </div>
+                <div class="flex flex-col gap-1">
+                  <span class="text-2xl font-bold text-accent">{{ routeResult.modeLabel }}</span>
+                  <span class="text-xs uppercase text-gray-500">Mode</span>
+                </div>
               </div>
             </div>
           </div>
@@ -899,7 +942,7 @@ onUnmounted(() => {
           <div v-if="activeTab === 'route'" class="flex flex-col gap-4">
             <div class="font-mono text-base">
               <span class="text-accent">nav.route</span>
-              <span class="text-gray-500">({ origin, destination, waypoints? })</span>
+              <span class="text-gray-500">({ origin, destination, mode, waypoints? })</span>
             </div>
             <p class="text-gray-500 text-sm leading-relaxed">
               Search for locations using autocomplete, then calculate route.
@@ -915,6 +958,21 @@ onUnmounted(() => {
                   {{ country.name }}
                 </option>
               </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs text-gray-500 font-mono">mode</label>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  v-for="option in travelModeOptions"
+                  :key="option.id"
+                  class="px-3 py-2.5 rounded-md text-sm font-medium transition-all"
+                  :class="travelMode === option.id ? 'bg-accent/10 border border-accent text-accent' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-900'"
+                  @click="travelMode = option.id"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
             </div>
 
             <div class="flex flex-col gap-1.5">
@@ -1020,6 +1078,10 @@ onUnmounted(() => {
                 <div class="flex flex-col gap-1">
                   <span class="text-2xl font-bold text-gray-900">{{ routeResult.stopCount || 0 }}</span>
                   <span class="text-xs uppercase text-gray-600">Stops</span>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <span class="text-2xl font-bold text-accent">{{ routeResult.modeLabel }}</span>
+                  <span class="text-xs uppercase text-gray-500">Mode</span>
                 </div>
               </div>
             </div>

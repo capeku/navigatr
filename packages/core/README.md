@@ -30,6 +30,34 @@ const route = await nav.route({ origin, destination })
 console.log(route.durationText) // "12 mins"
 console.log(route.distanceText) // "3.2 km"
 console.log(route.polyline)     // Array of { lat, lng } coordinates
+console.log(route.alternates)   // Optional alternate routes (when available)
+```
+
+## Autocomplete
+
+```ts
+const results = await nav.autocomplete({
+  query: 'Accra Mall',
+  limit: 5
+})
+
+console.log(results[0]?.displayName)
+```
+
+## Travel Modes
+
+```ts
+const walkRoute = await nav.route({
+  origin,
+  destination,
+  mode: 'walk'
+})
+
+const bikeRoute = await nav.route({
+  origin,
+  destination,
+  mode: 'bike'
+})
 ```
 
 ## Multi-Stop Routing
@@ -75,7 +103,8 @@ const route = await nav.route({
 ```ts
 const nav = new NavigatrCore({
   valhallaUrl: 'https://your-valhalla-instance.com',
-  nominatimUrl: 'https://your-nominatim-instance.com'
+  nominatimUrl: 'https://your-nominatim-instance.com',
+  photonUrl: 'https://your-photon-instance.com'
 })
 ```
 
@@ -92,8 +121,10 @@ interface RouteOptions {
   origin: LatLng
   destination: LatLng
   waypoints?: LatLng[]  // Optional stopovers between origin and destination
+  mode?: 'drive' | 'walk' | 'bike'  // Default: 'drive'
   maneuvers?: boolean  // Include turn-by-turn directions
   traffic?: boolean    // Use traffic-aware routing
+  shortest?: boolean   // Prefer shortest path over fastest
 }
 ```
 
@@ -104,6 +135,10 @@ Convert an address string to coordinates.
 #### `reverseGeocode({ lat, lng }): Promise<GeocodeResult>`
 
 Convert coordinates to an address.
+
+#### `autocomplete({ query, limit? }): Promise<AutocompleteResult[]>`
+
+Search location suggestions for typeahead inputs.
 
 ## Types
 
@@ -136,6 +171,15 @@ interface RouteResult {
   distanceText: string
   polyline: LatLng[]
   maneuvers?: Maneuver[]
+  alternates?: AlternateRoute[]
+}
+
+interface AlternateRoute {
+  durationSeconds: number
+  durationText: string
+  distanceMeters: number
+  distanceText: string
+  polyline: LatLng[]
 }
 ```
 

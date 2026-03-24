@@ -28,7 +28,8 @@
   "scripts": {
     "embed-css": "node scripts/embed-css.mjs",
     "build": "node scripts/embed-css.mjs && tsc",
-    "dev": "node scripts/embed-css.mjs && tsc --watch"
+    "dev": "node scripts/embed-css.mjs && tsc --watch",
+    "test": "vitest run"
   },
   "dependencies": {
     "@navigatr/core": "workspace:*",
@@ -40,7 +41,8 @@
     "@turf/along": "^7.1.0"
   },
   "devDependencies": {
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.8"
   },
   "keywords": [
     "maps",
