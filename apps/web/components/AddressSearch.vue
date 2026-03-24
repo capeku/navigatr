@@ -6,6 +6,7 @@ const { getNavigatr } = useNavigatr()
 const props = defineProps<{
   modelValue: string
   placeholder?: string
+  countryCode?: string
 }>()
 
 const emit = defineEmits<{
@@ -21,9 +22,79 @@ const activeIndex = ref(-1)
 const isSelecting = ref(false)
 
 let debounceTimer: ReturnType<typeof setTimeout>
+let searchRequestId = 0
+
+const countryName = computed(() => {
+  if (!props.countryCode) return ''
+
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' }).of(props.countryCode) ?? ''
+  } catch {
+    return ''
+  }
+})
+
+function filterSuggestions(results: AutocompleteResult[]): AutocompleteResult[] {
+  if (!props.countryCode) return results
+
+  const normalizedCode = props.countryCode.trim().toLowerCase()
+  const normalizedCountryName = countryName.value.trim().toLowerCase()
+
+  return results.filter((result) => {
+    const country = result.country?.trim().toLowerCase()
+    if (!country) return false
+
+    return (
+      country === normalizedCode ||
+      (normalizedCountryName !== '' && (
+        country === normalizedCountryName ||
+        country.includes(normalizedCountryName) ||
+        normalizedCountryName.includes(country)
+      ))
+    )
+  })
+}
+
+async function fetchSuggestions(query: string) {
+  const requestId = ++searchRequestId
+  isLoading.value = true
+
+  try {
+    const nav = await getNavigatr()
+    const results = await nav.autocomplete({ query, limit: 5 })
+
+    if (requestId !== searchRequestId || query !== inputValue.value) return
+
+    suggestions.value = filterSuggestions(results)
+    isOpen.value = suggestions.value.length > 0
+    activeIndex.value = -1
+  } catch {
+    if (requestId !== searchRequestId) return
+
+    suggestions.value = []
+    isOpen.value = false
+  } finally {
+    if (requestId === searchRequestId) {
+      isLoading.value = false
+    }
+  }
+}
 
 watch(() => props.modelValue, (val) => {
   inputValue.value = val
+})
+
+watch(() => props.countryCode, () => {
+  searchRequestId++
+
+  if (inputValue.value.length < 2) {
+    suggestions.value = []
+    isOpen.value = false
+    return
+  }
+
+  clearTimeout(debounceTimer)
+  void fetchSuggestions(inputValue.value)
 })
 
 watch(inputValue, (val) => {
@@ -37,23 +108,15 @@ watch(inputValue, (val) => {
   }
 
   if (val.length < 2) {
+    searchRequestId++
     suggestions.value = []
     isOpen.value = false
+    isLoading.value = false
     return
   }
 
   debounceTimer = setTimeout(async () => {
-    isLoading.value = true
-    try {
-      const nav = await getNavigatr()
-      suggestions.value = await nav.autocomplete({ query: val, limit: 5 })
-      isOpen.value = suggestions.value.length > 0
-      activeIndex.value = -1
-    } catch {
-      suggestions.value = []
-    } finally {
-      isLoading.value = false
-    }
+    await fetchSuggestions(val)
   }, 300)
 })
 
@@ -99,17 +162,7 @@ function handleBlur() {
 async function triggerSearch() {
   if (inputValue.value.length < 2) return
 
-  isLoading.value = true
-  try {
-    const nav = await getNavigatr()
-    suggestions.value = await nav.autocomplete({ query: inputValue.value, limit: 5 })
-    isOpen.value = suggestions.value.length > 0
-    activeIndex.value = -1
-  } catch {
-    suggestions.value = []
-  } finally {
-    isLoading.value = false
-  }
+  await fetchSuggestions(inputValue.value)
 }
 </script>
 
