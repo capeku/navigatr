@@ -24,6 +24,7 @@ export type TravelMode = 'drive' | 'walk' | 'bike'
 export interface RouteOptions {
   origin: LatLng
   destination: LatLng
+  waypoints?: LatLng[]
   mode?: TravelMode
   maneuvers?: boolean
   traffic?: boolean

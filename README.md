@@ -11,6 +11,7 @@ Navigatr is a maps SDK that provides routing, geocoding, and map rendering using
 ## Features
 
 - **Routing** - Turn-by-turn directions with ETA and distance
+- **Multi-Stop Routing** - Add waypoint stops between origin and destination
 - **Travel Modes** - Driving, walking, and biking routes from the same API
 - **Geocoding** - Convert addresses to coordinates and vice versa
 - **Map Rendering** - MapLibre GL maps with route visualization
@@ -43,9 +44,10 @@ const map = nav.map({ container: 'map', center: { lat: 5.6037, lng: -0.1870 } })
 // Geocode addresses
 const origin = await nav.geocode({ address: 'Accra Mall, Ghana' })
 const destination = await nav.geocode({ address: 'Kotoka Airport, Ghana' })
+const stopover = await nav.geocode({ address: '37 Military Hospital, Ghana' })
 
 // Get route and display
-const route = await nav.route({ origin, destination, mode: 'walk' })
+const route = await nav.route({ origin, destination, waypoints: [stopover], mode: 'walk' })
 map.drawRoute(route.polyline)
 map.fitRoute(route.polyline)
 

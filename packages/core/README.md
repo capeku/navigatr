@@ -60,6 +60,18 @@ const bikeRoute = await nav.route({
 })
 ```
 
+## Multi-Stop Routing
+
+```ts
+const stopover = await nav.geocode({ address: '37 Military Hospital, Accra' })
+
+const route = await nav.route({
+  origin,
+  destination,
+  waypoints: [stopover]
+})
+```
+
 ## Turn-by-Turn Directions
 
 ```ts
@@ -108,6 +120,7 @@ Get driving directions between two points.
 interface RouteOptions {
   origin: LatLng
   destination: LatLng
+  waypoints?: LatLng[]  // Optional stopovers between origin and destination
   mode?: 'drive' | 'walk' | 'bike'  // Default: 'drive'
   maneuvers?: boolean  // Include turn-by-turn directions
   traffic?: boolean    // Use traffic-aware routing
