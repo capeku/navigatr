@@ -795,9 +795,9 @@ onUnmounted(() => {
             </div>
             <div class="flex flex-col gap-2">
               <div class="flex items-center justify-between">
-                <label class="text-xs text-gray-500 font-mono">stops</label>
+                <label class="text-xs text-gray-700 font-mono uppercase tracking-wide">stops</label>
                 <button
-                  class="px-3 py-1.5 rounded-md text-xs font-medium bg-accent/10 border border-accent text-accent"
+                  class="px-3 py-1.5 rounded-md text-xs font-medium bg-gray-900 border border-gray-900 text-white transition-colors hover:bg-gray-800"
                   @click="addRouteStop"
                 >
                   Add Stop
@@ -806,10 +806,10 @@ onUnmounted(() => {
               <div
                 v-for="(stop, index) in routeStops"
                 :key="stop.id"
-                class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-3"
+                class="flex flex-col gap-2 rounded-lg border border-gray-300 bg-white p-3 shadow-sm"
               >
                 <div class="flex items-center justify-between">
-                  <span class="text-xs text-gray-500 font-mono">stop {{ index + 1 }}</span>
+                  <span class="text-xs text-gray-700 font-mono uppercase tracking-wide">stop {{ index + 1 }}</span>
                   <button
                     class="text-xs text-red-500 hover:text-red-600"
                     @click="removeRouteStop(stop.id)"
@@ -829,19 +829,20 @@ onUnmounted(() => {
                 Select a result from the dropdown before it becomes part of the route.
               </p>
             </div>
-            <div v-if="routeResult" class="p-4 bg-white border border-gray-200 rounded-lg">
+            <div v-if="routeResult" class="p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
+              <div class="text-xs uppercase text-gray-600 mb-3 tracking-wide">Route Result</div>
               <div class="flex gap-8">
                 <div class="flex flex-col gap-1">
-                  <span class="text-2xl font-bold text-accent">{{ routeResult.durationMins }} min</span>
-                  <span class="text-xs uppercase text-gray-500">Duration</span>
+                  <span class="text-2xl font-bold text-gray-900">{{ routeResult.durationMins }} min</span>
+                  <span class="text-xs uppercase text-gray-600">Duration</span>
                 </div>
                 <div class="flex flex-col gap-1">
-                  <span class="text-2xl font-bold text-accent">{{ routeResult.distanceKm }} km</span>
-                  <span class="text-xs uppercase text-gray-500">Distance</span>
+                  <span class="text-2xl font-bold text-gray-900">{{ routeResult.distanceKm }} km</span>
+                  <span class="text-xs uppercase text-gray-600">Distance</span>
                 </div>
                 <div class="flex flex-col gap-1">
-                  <span class="text-2xl font-bold text-accent">{{ routeResult.stopCount || 0 }}</span>
-                  <span class="text-xs uppercase text-gray-500">Stops</span>
+                  <span class="text-2xl font-bold text-gray-900">{{ routeResult.stopCount || 0 }}</span>
+                  <span class="text-xs uppercase text-gray-600">Stops</span>
                 </div>
               </div>
             </div>
@@ -964,9 +965,9 @@ onUnmounted(() => {
 
             <div class="flex flex-col gap-2">
               <div class="flex items-center justify-between">
-                <label class="text-xs text-gray-500 font-mono">stops</label>
+                <label class="text-xs text-gray-700 font-mono uppercase tracking-wide">stops</label>
                 <button
-                  class="px-3 py-1.5 rounded-md text-xs font-medium bg-accent/10 border border-accent text-accent"
+                  class="px-3 py-1.5 rounded-md text-xs font-medium bg-gray-900 border border-gray-900 text-white transition-colors hover:bg-gray-800"
                   @click="addRouteStop"
                 >
                   Add Stop
@@ -976,10 +977,10 @@ onUnmounted(() => {
               <div
                 v-for="(stop, index) in routeStops"
                 :key="stop.id"
-                class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-3"
+                class="flex flex-col gap-2 rounded-lg border border-gray-300 bg-white p-3 shadow-sm"
               >
                 <div class="flex items-center justify-between">
-                  <span class="text-xs text-gray-500 font-mono">stop {{ index + 1 }}</span>
+                  <span class="text-xs text-gray-700 font-mono uppercase tracking-wide">stop {{ index + 1 }}</span>
                   <button
                     class="text-xs text-red-500 hover:text-red-600"
                     @click="removeRouteStop(stop.id)"
@@ -996,7 +997,7 @@ onUnmounted(() => {
                 />
               </div>
 
-              <p v-if="hasPendingRouteStops" class="text-xs text-gray-500">
+              <p v-if="hasPendingRouteStops" class="text-xs text-gray-600">
                 Select a result from the dropdown before it becomes part of the route.
               </p>
             </div>
@@ -1005,20 +1006,20 @@ onUnmounted(() => {
               Click on the map to set {{ pinDropMode }}
             </div>
 
-            <div v-if="routeResult" class="p-4 bg-white border border-gray-200 rounded-lg">
-              <div class="text-xs uppercase text-gray-500 mb-3">Route Result</div>
+            <div v-if="routeResult" class="p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
+              <div class="text-xs uppercase text-gray-600 mb-3 tracking-wide">Route Result</div>
               <div class="flex gap-8">
                 <div class="flex flex-col gap-1">
-                  <span class="text-2xl font-bold text-accent">{{ routeResult.durationMins }} min</span>
-                  <span class="text-xs uppercase text-gray-500">Duration</span>
+                  <span class="text-2xl font-bold text-gray-900">{{ routeResult.durationMins }} min</span>
+                  <span class="text-xs uppercase text-gray-600">Duration</span>
                 </div>
                 <div class="flex flex-col gap-1">
-                  <span class="text-2xl font-bold text-accent">{{ routeResult.distanceKm }} km</span>
-                  <span class="text-xs uppercase text-gray-500">Distance</span>
+                  <span class="text-2xl font-bold text-gray-900">{{ routeResult.distanceKm }} km</span>
+                  <span class="text-xs uppercase text-gray-600">Distance</span>
                 </div>
                 <div class="flex flex-col gap-1">
-                  <span class="text-2xl font-bold text-accent">{{ routeResult.stopCount || 0 }}</span>
-                  <span class="text-xs uppercase text-gray-500">Stops</span>
+                  <span class="text-2xl font-bold text-gray-900">{{ routeResult.stopCount || 0 }}</span>
+                  <span class="text-xs uppercase text-gray-600">Stops</span>
                 </div>
               </div>
             </div>
