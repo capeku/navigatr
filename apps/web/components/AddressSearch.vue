@@ -20,6 +20,8 @@ const isOpen = ref(false)
 const isLoading = ref(false)
 const activeIndex = ref(-1)
 const isSelecting = ref(false)
+const MAX_VISIBLE_SUGGESTIONS = 5
+const COUNTRY_FILTER_FETCH_LIMIT = 20
 
 let debounceTimer: ReturnType<typeof setTimeout>
 let searchRequestId = 0
@@ -34,17 +36,18 @@ const countryName = computed(() => {
   }
 })
 
-function filterSuggestions(results: AutocompleteResult[]): AutocompleteResult[] {
+function prioritizeSuggestions(results: AutocompleteResult[]): AutocompleteResult[] {
   if (!props.countryCode) return results
 
   const normalizedCode = props.countryCode.trim().toLowerCase()
   const normalizedCountryName = countryName.value.trim().toLowerCase()
 
-  return results.filter((result) => {
-    const country = result.country?.trim().toLowerCase()
-    if (!country) return false
+  const matches: AutocompleteResult[] = []
+  const nonMatches: AutocompleteResult[] = []
 
-    return (
+  results.forEach((result) => {
+    const country = result.country?.trim().toLowerCase()
+    const isMatch = !!country && (
       country === normalizedCode ||
       (normalizedCountryName !== '' && (
         country === normalizedCountryName ||
@@ -52,7 +55,15 @@ function filterSuggestions(results: AutocompleteResult[]): AutocompleteResult[] 
         normalizedCountryName.includes(country)
       ))
     )
+
+    if (isMatch) {
+      matches.push(result)
+    } else {
+      nonMatches.push(result)
+    }
   })
+
+  return matches.length > 0 ? [...matches, ...nonMatches] : results
 }
 
 async function fetchSuggestions(query: string) {
@@ -61,11 +72,14 @@ async function fetchSuggestions(query: string) {
 
   try {
     const nav = await getNavigatr()
-    const results = await nav.autocomplete({ query, limit: 5 })
+    const results = await nav.autocomplete({
+      query,
+      limit: props.countryCode ? COUNTRY_FILTER_FETCH_LIMIT : MAX_VISIBLE_SUGGESTIONS
+    })
 
     if (requestId !== searchRequestId || query !== inputValue.value) return
 
-    suggestions.value = filterSuggestions(results)
+    suggestions.value = prioritizeSuggestions(results).slice(0, MAX_VISIBLE_SUGGESTIONS)
     isOpen.value = suggestions.value.length > 0
     activeIndex.value = -1
   } catch {
