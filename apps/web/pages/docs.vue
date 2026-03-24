@@ -16,6 +16,12 @@ interface AutocompleteResult {
   country?: string;
 }
 
+interface RouteStopInput {
+  id: number;
+  query: string;
+  result: AutocompleteResult | null;
+}
+
 type TabId = "route" | "tracking" | "styling";
 
 interface MapStyle {
@@ -102,6 +108,7 @@ const mapStyle = ref<MapStyle>({
 
 const routeOriginInput = ref("");
 const routeDestinationInput = ref("");
+const routeStops = ref<RouteStopInput[]>([]);
 const routeResult = ref<any>(null);
 const pinDropMode = ref<"origin" | "destination" | null>(null);
 
@@ -112,6 +119,20 @@ let destinationMarker: NavigatrMarker | null = null;
 const polyline = ref<LatLng[]>([]);
 const originCoords = ref<LatLng | null>(null);
 const destinationCoords = ref<LatLng | null>(null);
+const selectedRouteStops = computed(() =>
+  routeStops.value.filter((stop) => stop.result),
+);
+const routeWaypoints = computed<LatLng[]>(() =>
+  selectedRouteStops.value.map((stop) => ({
+    lat: stop.result!.lat,
+    lng: stop.result!.lng,
+  })),
+);
+const hasPendingRouteStops = computed(() =>
+  routeStops.value.some((stop) => !stop.result),
+);
+
+let nextRouteStopId = 1;
 
 const isTracking = ref(false);
 const trackingProgress = ref(0);
@@ -240,6 +261,18 @@ function applyStyleToMap() {
 }
 
 const generatedCode = computed(() => {
+  if (activeTab.value === "route") {
+    const waypointBlock =
+      routeWaypoints.value.length > 0
+        ? `,\n  waypoints: ${JSON.stringify(routeWaypoints.value, null, 2)}`
+        : "";
+
+    return `const route = await nav.route({
+  origin: ${JSON.stringify(originCoords.value ?? { lat: 5.6037, lng: -0.187 }, null, 2)},
+  destination: ${JSON.stringify(destinationCoords.value ?? { lat: 5.6226, lng: -0.1725 }, null, 2)}${waypointBlock}
+})`;
+  }
+
   const style = mapStyle.value;
   return `import { NavigatrCore } from '@navigatr/core'
 
@@ -279,6 +312,34 @@ const cssVars = nav.getStyleAsCSSVariables('map')
 });
 
 const highlightedCode = computed(() => {
+  if (activeTab.value === "route") {
+    const origin = originCoords.value ?? { lat: 5.6037, lng: -0.187 };
+    const destination = destinationCoords.value ?? {
+      lat: 5.6226,
+      lng: -0.1725,
+    };
+    const waypointLines =
+      routeWaypoints.value.length > 0
+        ? `,\n  <span class="text-cyan-300">waypoints</span>: [\n${routeWaypoints.value
+            .map(
+              (stop) =>
+                `    { <span class="text-cyan-300">lat</span>: <span class="text-orange-400">${stop.lat}</span>, <span class="text-cyan-300">lng</span>: <span class="text-orange-400">${stop.lng}</span> }`,
+            )
+            .join(",\n")}\n  ]`
+        : "";
+
+    return `<span class="text-purple-400">const</span> route = <span class="text-purple-400">await</span> nav.<span class="text-blue-400">route</span>({
+  <span class="text-cyan-300">origin</span>: {
+    <span class="text-cyan-300">lat</span>: <span class="text-orange-400">${origin.lat}</span>,
+    <span class="text-cyan-300">lng</span>: <span class="text-orange-400">${origin.lng}</span>
+  },
+  <span class="text-cyan-300">destination</span>: {
+    <span class="text-cyan-300">lat</span>: <span class="text-orange-400">${destination.lat}</span>,
+    <span class="text-cyan-300">lng</span>: <span class="text-orange-400">${destination.lng}</span>
+  }${waypointLines}
+})`;
+  }
+
   const style = mapStyle.value;
   return `<span class="text-purple-400">import</span> { <span class="text-cyan-400">NavigatrCore</span> } <span class="text-purple-400">from</span> <span class="text-yellow-300">'@navigatr/core'</span>
 
@@ -346,6 +407,50 @@ function clearMap() {
   polyline.value = [];
   routeResult.value = null;
   stopTracking();
+}
+
+function createRouteStop(): RouteStopInput {
+  return {
+    id: nextRouteStopId++,
+    query: "",
+    result: null,
+  };
+}
+
+function routeStopLabel(result: AutocompleteResult): string {
+  return result.name || result.displayName.split(",")[0] || result.displayName;
+}
+
+function addRouteStop() {
+  routeStops.value.push(createRouteStop());
+}
+
+function updateRouteStopQuery(id: number, value: string) {
+  const stop = routeStops.value.find((item) => item.id === id);
+  if (!stop) return;
+
+  stop.query = value;
+  if (stop.result && value.trim() !== routeStopLabel(stop.result)) {
+    stop.result = null;
+  }
+}
+
+function selectRouteStop(id: number, result: AutocompleteResult) {
+  const stop = routeStops.value.find((item) => item.id === id);
+  if (!stop) return;
+
+  stop.query = routeStopLabel(result);
+  stop.result = result;
+
+  log(`Stop ${routeStops.value.findIndex((item) => item.id === id) + 1} selected: ${stop.query}`, "success");
+  if (originCoords.value && destinationCoords.value) calculateRoute();
+}
+
+function removeRouteStop(id: number) {
+  routeStops.value = routeStops.value.filter((stop) => stop.id !== id);
+  if (originCoords.value && destinationCoords.value) {
+    calculateRoute();
+  }
 }
 
 function handleOriginSelect(result: AutocompleteResult) {
@@ -425,11 +530,12 @@ async function calculateRoute() {
   isRunning.value = true;
   stopTracking();
 
-  log(`nav.route({ origin, destination })`);
+  log(`nav.route({ origin, destination${routeWaypoints.value.length ? ", waypoints" : ""} })`);
   try {
     const result = await nav.route({
       origin: originCoords.value,
       destination: destinationCoords.value,
+      waypoints: routeWaypoints.value,
     });
 
     const durationMins = Math.round(result.durationSeconds / 60);
@@ -439,10 +545,14 @@ async function calculateRoute() {
       durationMins,
       distanceKm,
       durationSeconds: result.durationSeconds,
+      stopCount: selectedRouteStops.value.length,
     };
     polyline.value = result.polyline;
 
     log(`Route calculated:`, "success");
+    if (selectedRouteStops.value.length > 0) {
+      log(`  Stops: ${selectedRouteStops.value.length}`);
+    }
     log(`  Duration: ${durationMins} min`);
     log(`  Distance: ${distanceKm} km`);
     log(`  Polyline: ${result.polyline.length} points`);
@@ -683,6 +793,42 @@ onUnmounted(() => {
               <label class="text-xs text-gray-500 font-mono">destination</label>
               <AddressSearch v-model="routeDestinationInput" placeholder="Search..." :country-code="selectedCountry" @select="handleDestinationSelect" />
             </div>
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center justify-between">
+                <label class="text-xs text-gray-500 font-mono">stops</label>
+                <button
+                  class="px-3 py-1.5 rounded-md text-xs font-medium bg-accent/10 border border-accent text-accent"
+                  @click="addRouteStop"
+                >
+                  Add Stop
+                </button>
+              </div>
+              <div
+                v-for="(stop, index) in routeStops"
+                :key="stop.id"
+                class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-3"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-gray-500 font-mono">stop {{ index + 1 }}</span>
+                  <button
+                    class="text-xs text-red-500 hover:text-red-600"
+                    @click="removeRouteStop(stop.id)"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <AddressSearch
+                  :model-value="stop.query"
+                  placeholder="Search stop..."
+                  :country-code="selectedCountry"
+                  @update:model-value="updateRouteStopQuery(stop.id, $event)"
+                  @select="selectRouteStop(stop.id, $event)"
+                />
+              </div>
+              <p v-if="hasPendingRouteStops" class="text-xs text-gray-500">
+                Select a result from the dropdown before it becomes part of the route.
+              </p>
+            </div>
             <div v-if="routeResult" class="p-4 bg-white border border-gray-200 rounded-lg">
               <div class="flex gap-8">
                 <div class="flex flex-col gap-1">
@@ -692,6 +838,10 @@ onUnmounted(() => {
                 <div class="flex flex-col gap-1">
                   <span class="text-2xl font-bold text-accent">{{ routeResult.distanceKm }} km</span>
                   <span class="text-xs uppercase text-gray-500">Distance</span>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <span class="text-2xl font-bold text-accent">{{ routeResult.stopCount || 0 }}</span>
+                  <span class="text-xs uppercase text-gray-500">Stops</span>
                 </div>
               </div>
             </div>
@@ -748,7 +898,7 @@ onUnmounted(() => {
           <div v-if="activeTab === 'route'" class="flex flex-col gap-4">
             <div class="font-mono text-base">
               <span class="text-accent">nav.route</span>
-              <span class="text-gray-500">({ origin, destination })</span>
+              <span class="text-gray-500">({ origin, destination, waypoints? })</span>
             </div>
             <p class="text-gray-500 text-sm leading-relaxed">
               Search for locations using autocomplete, then calculate route.
@@ -812,6 +962,45 @@ onUnmounted(() => {
               />
             </div>
 
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center justify-between">
+                <label class="text-xs text-gray-500 font-mono">stops</label>
+                <button
+                  class="px-3 py-1.5 rounded-md text-xs font-medium bg-accent/10 border border-accent text-accent"
+                  @click="addRouteStop"
+                >
+                  Add Stop
+                </button>
+              </div>
+
+              <div
+                v-for="(stop, index) in routeStops"
+                :key="stop.id"
+                class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-3"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-gray-500 font-mono">stop {{ index + 1 }}</span>
+                  <button
+                    class="text-xs text-red-500 hover:text-red-600"
+                    @click="removeRouteStop(stop.id)"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <AddressSearch
+                  :model-value="stop.query"
+                  placeholder="Search stop..."
+                  :country-code="selectedCountry"
+                  @update:model-value="updateRouteStopQuery(stop.id, $event)"
+                  @select="selectRouteStop(stop.id, $event)"
+                />
+              </div>
+
+              <p v-if="hasPendingRouteStops" class="text-xs text-gray-500">
+                Select a result from the dropdown before it becomes part of the route.
+              </p>
+            </div>
+
             <div v-if="pinDropMode" class="px-3.5 py-2.5 bg-accent/10 border border-dashed border-accent rounded-lg text-sm text-accent text-center">
               Click on the map to set {{ pinDropMode }}
             </div>
@@ -826,6 +1015,10 @@ onUnmounted(() => {
                 <div class="flex flex-col gap-1">
                   <span class="text-2xl font-bold text-accent">{{ routeResult.distanceKm }} km</span>
                   <span class="text-xs uppercase text-gray-500">Distance</span>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <span class="text-2xl font-bold text-accent">{{ routeResult.stopCount || 0 }}</span>
+                  <span class="text-xs uppercase text-gray-500">Stops</span>
                 </div>
               </div>
             </div>

@@ -35,6 +35,22 @@ console.log(result.durationText) // "12 mins"
 console.log(result.distanceText) // "3.2 km"
 ```
 
+## Multi-Stop Routing
+
+```ts
+const stopover = await nav.geocode({ address: '37 Military Hospital, Accra' })
+
+const result = await nav.route({
+  origin,
+  destination,
+  waypoints: [stopover]
+})
+
+map.addMarker({ ...stopover, label: 'Stop 1' })
+map.drawRoute(result.polyline)
+map.fitRoute(result.polyline)
+```
+
 ## Ride-Sharing Apps
 
 Use `RideSession` for complete ride lifecycle management:

@@ -62,6 +62,20 @@ console.log(route.distanceMeters)  // 3200
 console.log(route.polyline)        // Array of {lat, lng} for drawing
 ```
 
+## Multi-Stop Routing
+
+Add stopovers between the start and end points:
+
+```ts
+const route = await nav.route({
+  origin,
+  destination,
+  waypoints: [
+    { lat: 5.6111, lng: -0.1815 } // 37 Military Hospital
+  ]
+})
+```
+
 ## Drawing Routes
 
 ```ts

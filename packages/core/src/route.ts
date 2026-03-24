@@ -84,17 +84,105 @@ const MANEUVER_TYPES: Record<number, string> = {
   29: 'ferry_exit'
 }
 
+const INTERMEDIATE_DESTINATION_TYPES = new Set([4, 5, 6])
+
+function pointsEqual(a: LatLng, b: LatLng): boolean {
+  return a.lat === b.lat && a.lng === b.lng
+}
+
+function buildRoutePolyline(legs: ValhallaTrip['legs']): {
+  polyline: LatLng[]
+  legStartIndices: number[]
+} {
+  const polyline: LatLng[] = []
+  const legStartIndices: number[] = []
+
+  legs.forEach((leg, index) => {
+    const decodedLeg = decodePolyline(leg.shape)
+
+    if (decodedLeg.length === 0) {
+      legStartIndices.push(Math.max(polyline.length - 1, 0))
+      return
+    }
+
+    const sharesBoundaryPoint =
+      index > 0 &&
+      polyline.length > 0 &&
+      pointsEqual(polyline[polyline.length - 1], decodedLeg[0])
+
+    const legStartIndex = sharesBoundaryPoint
+      ? polyline.length - 1
+      : polyline.length
+
+    legStartIndices.push(legStartIndex)
+    polyline.push(...(sharesBoundaryPoint ? decodedLeg.slice(1) : decodedLeg))
+  })
+
+  return { polyline, legStartIndices }
+}
+
+function buildManeuvers(
+  legs: ValhallaTrip['legs'],
+  polyline: LatLng[],
+  legStartIndices: number[]
+): Maneuver[] {
+  return legs.flatMap((leg, legIndex) =>
+    leg.maneuvers.flatMap((maneuver): Maneuver[] => {
+      if (
+        legIndex < legs.length - 1 &&
+        INTERMEDIATE_DESTINATION_TYPES.has(maneuver.type)
+      ) {
+        return []
+      }
+
+      const startPointIndex = legStartIndices[legIndex] + maneuver.begin_shape_index
+
+      return [{
+        instruction: maneuver.instruction,
+        type: MANEUVER_TYPES[maneuver.type] || 'unknown',
+        distanceMeters: maneuver.length * 1000,
+        distanceText: formatDistance(maneuver.length * 1000),
+        durationSeconds: maneuver.time,
+        durationText: formatDuration(maneuver.time),
+        startPoint: polyline[startPointIndex] || polyline[polyline.length - 1] || polyline[0]
+      }]
+    })
+  )
+}
+
+function buildAlternateRoute(altTrip: ValhallaTrip): AlternateRoute {
+  const { polyline } = buildRoutePolyline(altTrip.legs)
+  const durationSeconds = altTrip.summary.time
+  const distanceMeters = altTrip.summary.length * 1000
+
+  return {
+    durationSeconds,
+    durationText: formatDuration(durationSeconds),
+    distanceMeters,
+    distanceText: formatDistance(distanceMeters),
+    polyline
+  }
+}
+
 export async function getRoute(
   options: RouteOptions,
   valhallaUrl: string = DEFAULT_VALHALLA_URL
 ): Promise<RouteResult> {
-  const { origin, destination, maneuvers: includeManeuvers, traffic, shortest } = options
+  const {
+    origin,
+    destination,
+    waypoints = [],
+    maneuvers: includeManeuvers,
+    traffic,
+    shortest
+  } = options
 
   const requestBody: ValhallaRequest = {
-    locations: [
-      { lon: origin.lng, lat: origin.lat, type: 'break' },
-      { lon: destination.lng, lat: destination.lat, type: 'break' }
-    ],
+    locations: [origin, ...waypoints, destination].map((location) => ({
+      lon: location.lng,
+      lat: location.lat,
+      type: 'break'
+    })),
     costing: 'auto',
     directions_options: { units: 'km' },
     alternates: 3
@@ -126,8 +214,7 @@ export async function getRoute(
 
   const data: ValhallaResponse = await response.json()
 
-  const encodedPolyline = data.trip.legs[0].shape
-  const polyline = decodePolyline(encodedPolyline)
+  const { polyline, legStartIndices } = buildRoutePolyline(data.trip.legs)
 
   const durationSeconds = data.trip.summary.time
   const distanceMeters = data.trip.summary.length * 1000
@@ -140,33 +227,13 @@ export async function getRoute(
     polyline
   }
 
-  if (includeManeuvers && data.trip.legs[0].maneuvers) {
-    result.maneuvers = data.trip.legs[0].maneuvers.map((m): Maneuver => ({
-      instruction: m.instruction,
-      type: MANEUVER_TYPES[m.type] || 'unknown',
-      distanceMeters: m.length * 1000,
-      distanceText: formatDistance(m.length * 1000),
-      durationSeconds: m.time,
-      durationText: formatDuration(m.time),
-      startPoint: polyline[m.begin_shape_index] || polyline[0]
-    }))
+  if (includeManeuvers) {
+    result.maneuvers = buildManeuvers(data.trip.legs, polyline, legStartIndices)
   }
 
   // Parse alternate routes
   if (data.alternates && data.alternates.length > 0) {
-    result.alternates = data.alternates.map((alt): AlternateRoute => {
-      const altPolyline = decodePolyline(alt.trip.legs[0].shape)
-      const altDuration = alt.trip.summary.time
-      const altDistance = alt.trip.summary.length * 1000
-
-      return {
-        durationSeconds: altDuration,
-        durationText: formatDuration(altDuration),
-        distanceMeters: altDistance,
-        distanceText: formatDistance(altDistance),
-        polyline: altPolyline
-      }
-    })
+    result.alternates = data.alternates.map((alt) => buildAlternateRoute(alt.trip))
   }
 
   return result

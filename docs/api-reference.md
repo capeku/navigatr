@@ -69,6 +69,7 @@ Calculate a route between two points.
 const result = await nav.route({
   origin: { lat: 5.6, lng: -0.2 },
   destination: { lat: 5.5, lng: -0.1 },
+  waypoints: [{ lat: 5.58, lng: -0.18 }],
   maneuvers: true,  // Optional: include turn-by-turn
   traffic: true     // Optional: consider traffic
 })
@@ -294,6 +295,7 @@ interface RouteResult {
 interface RouteOptions {
   origin: LatLng
   destination: LatLng
+  waypoints?: LatLng[]
   maneuvers?: boolean
   traffic?: boolean
 }

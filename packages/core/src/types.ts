@@ -22,6 +22,7 @@ export interface Maneuver {
 export interface RouteOptions {
   origin: LatLng
   destination: LatLng
+  waypoints?: LatLng[]
   maneuvers?: boolean
   traffic?: boolean
   shortest?: boolean
