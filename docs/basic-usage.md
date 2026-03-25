@@ -193,6 +193,21 @@ const nav = new Navigatr({
 })
 ```
 
+## Fallback URLs
+
+Use backup services for geocoding and autocomplete:
+
+```ts
+const nav = new Navigatr({
+  nominatimUrl: 'https://primary-nominatim.example.com',
+  nominatimFallbackUrls: ['https://backup-nominatim.example.com'],
+  photonUrl: 'https://primary-photon.example.com',
+  photonFallbackUrls: ['https://backup-photon.example.com']
+})
+```
+
+Navigatr will try the primary URL first, then each fallback in order.
+
 ## Geocoding Best Practice
 
 Nominatim has strict rate limits (commonly around 1 req/sec on public infrastructure). For ride, delivery, and property flows:
