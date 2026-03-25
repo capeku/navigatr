@@ -1,4 +1,24 @@
-import type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, MapStyle, MapStylePreset, MapColors, LayerVisibility, MarkerStyle, PolylineStyle, MapTheme, AlternateRoute, TravelMode } from './types'
+import type {
+  LatLng,
+  GeocodeResult,
+  RouteResult,
+  RouteOptions,
+  Maneuver,
+  NavigatrConfig,
+  AutocompleteResult,
+  MapStyle,
+  MapStylePreset,
+  MapColors,
+  LayerVisibility,
+  MarkerStyle,
+  PolylineStyle,
+  MapTheme,
+  AlternateRoute,
+  TravelMode,
+  GeocodeParams,
+  ReverseGeocodeParams,
+  AutocompleteParams
+} from './types'
 import { getRoute } from './route'
 import { geocode as geocodeAddress, reverseGeocode as reverseGeocodeCoords } from './geocode'
 import { autocomplete as autocompleteSearch } from './autocomplete'
@@ -21,16 +41,16 @@ export class NavigatrCore {
     return getRoute(params, this.valhallaUrl)
   }
 
-  async geocode(params: { address: string }): Promise<GeocodeResult> {
-    return geocodeAddress(params.address, this.nominatimUrl)
+  async geocode(params: GeocodeParams): Promise<GeocodeResult> {
+    return geocodeAddress(params.address, this.nominatimUrl, params)
   }
 
-  async reverseGeocode(params: { lat: number; lng: number }): Promise<GeocodeResult> {
-    return reverseGeocodeCoords(params.lat, params.lng, this.nominatimUrl)
+  async reverseGeocode(params: ReverseGeocodeParams): Promise<GeocodeResult> {
+    return reverseGeocodeCoords(params.lat, params.lng, this.nominatimUrl, params)
   }
 
-  async autocomplete(params: { query: string; limit?: number }): Promise<AutocompleteResult[]> {
-    return autocompleteSearch(params.query, { limit: params.limit, photonUrl: this.photonUrl })
+  async autocomplete(params: AutocompleteParams): Promise<AutocompleteResult[]> {
+    return autocompleteSearch(params.query, { ...params, photonUrl: this.photonUrl })
   }
 
   // Map Customization API
@@ -79,5 +99,25 @@ export class NavigatrCore {
   }
 }
 
-export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, MapStyle, MapStylePreset, MapColors, LayerVisibility, MarkerStyle, PolylineStyle, MapTheme, AlternateRoute, TravelMode }
+export type {
+  LatLng,
+  GeocodeResult,
+  RouteResult,
+  RouteOptions,
+  Maneuver,
+  NavigatrConfig,
+  AutocompleteResult,
+  MapStyle,
+  MapStylePreset,
+  MapColors,
+  LayerVisibility,
+  MarkerStyle,
+  PolylineStyle,
+  MapTheme,
+  AlternateRoute,
+  TravelMode,
+  GeocodeParams,
+  ReverseGeocodeParams,
+  AutocompleteParams
+}
 export { MAP_STYLE_PRESETS } from './mapStyle'

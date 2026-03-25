@@ -1,4 +1,4 @@
-import type { AutocompleteResult } from './types'
+import type { AutocompleteOptions, AutocompleteResult, QueryParamValue } from './types'
 
 const DEFAULT_PHOTON_URL = 'https://photon.komoot.io'
 const USER_AGENT = 'navigatr-sdk/1.0'
@@ -8,6 +8,7 @@ interface PhotonFeature {
   properties: {
     osm_id: number
     osm_type: string
+    countrycode?: string
     name?: string
     city?: string
     state?: string
@@ -27,6 +28,37 @@ interface PhotonFeature {
 interface PhotonResponse {
   type: 'FeatureCollection'
   features: PhotonFeature[]
+}
+
+function appendQueryParam(params: URLSearchParams, key: string, value: QueryParamValue): void {
+  if (value === undefined || value === null) return
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      params.append(key, String(item))
+    }
+    return
+  }
+  params.set(key, String(value))
+}
+
+function applyAutocompleteOptions(params: URLSearchParams, options: AutocompleteOptions): void {
+  if (options.language) params.set('lang', options.language)
+  if (options.locationBias) {
+    params.set('lat', String(options.locationBias.lat))
+    params.set('lon', String(options.locationBias.lng))
+  }
+  if (options.bbox !== undefined) {
+    const bbox = Array.isArray(options.bbox) ? options.bbox.join(',') : options.bbox
+    params.set('bbox', bbox)
+  }
+  if (options.osmTag !== undefined) appendQueryParam(params, 'osm_tag', options.osmTag)
+  if (options.layer !== undefined) appendQueryParam(params, 'layer', options.layer)
+
+  if (options.extraParams) {
+    for (const [key, value] of Object.entries(options.extraParams)) {
+      appendQueryParam(params, key, value)
+    }
+  }
 }
 
 function buildDisplayName(props: PhotonFeature['properties']): string {
@@ -49,14 +81,24 @@ function buildDisplayName(props: PhotonFeature['properties']): string {
 
 export async function autocomplete(
   query: string,
-  options: { limit?: number; photonUrl?: string } = {}
+  options: AutocompleteOptions & { photonUrl?: string } = {}
 ): Promise<AutocompleteResult[]> {
   const { limit = 5, photonUrl = DEFAULT_PHOTON_URL } = options
+  const normalizedCountryCodes = options.countryCodes
+    ? (Array.isArray(options.countryCodes) ? options.countryCodes : [options.countryCodes]).map((code) =>
+        code.trim().toUpperCase()
+      )
+    : null
+
+  // Country filtering is performed client-side because Photon doesn't expose a country param.
+  // Over-fetch so we still have enough in-country candidates after filtering.
+  const fetchLimit = normalizedCountryCodes?.length ? Math.min(Math.max(limit * 10, 25), 100) : limit
 
   const params = new URLSearchParams({
     q: query,
-    limit: limit.toString()
+    limit: fetchLimit.toString()
   })
+  applyAutocompleteOptions(params, options)
 
   const response = await fetch(`${photonUrl}/api/?${params}`, {
     headers: {
@@ -72,7 +114,14 @@ export async function autocomplete(
 
   const data: PhotonResponse = await response.json()
 
-  return data.features.map((feature): AutocompleteResult => {
+  const features = normalizedCountryCodes?.length
+    ? data.features.filter((feature) => {
+        const code = feature.properties.countrycode?.toUpperCase()
+        return Boolean(code && normalizedCountryCodes.includes(code))
+      })
+    : data.features
+
+  return features.slice(0, limit).map((feature): AutocompleteResult => {
     const [lng, lat] = feature.geometry.coordinates
     const props = feature.properties
 

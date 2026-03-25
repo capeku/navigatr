@@ -9,6 +9,58 @@ export interface GeocodeResult {
   displayName: string
 }
 
+export type QueryParamPrimitive = string | number | boolean
+export type QueryParamValue = QueryParamPrimitive | QueryParamPrimitive[] | null | undefined
+export type QueryParams = Record<string, QueryParamValue>
+
+export interface GeocodeSearchOptions {
+  limit?: number
+  countryCodes?: string[] | string
+  country?: string
+  featureType?: 'country' | 'state' | 'city' | 'settlement'
+  language?: string
+  bounded?: boolean
+  viewbox?: [number, number, number, number] | string
+  addressdetails?: boolean
+  extratags?: boolean
+  namedetails?: boolean
+  dedupe?: boolean
+  extraParams?: QueryParams
+}
+
+export interface GeocodeParams extends GeocodeSearchOptions {
+  address: string
+}
+
+export interface ReverseGeocodeOptions {
+  language?: string
+  zoom?: number
+  addressdetails?: boolean
+  extratags?: boolean
+  namedetails?: boolean
+  extraParams?: QueryParams
+}
+
+export interface ReverseGeocodeParams extends ReverseGeocodeOptions {
+  lat: number
+  lng: number
+}
+
+export interface AutocompleteOptions {
+  limit?: number
+  language?: string
+  countryCodes?: string[] | string
+  locationBias?: LatLng
+  bbox?: [number, number, number, number] | string
+  osmTag?: string | string[]
+  layer?: string | string[]
+  extraParams?: QueryParams
+}
+
+export interface AutocompleteParams extends AutocompleteOptions {
+  query: string
+}
+
 export interface Maneuver {
   instruction: string
   type: string
