@@ -12,6 +12,7 @@ Navigatr is a maps SDK that provides routing, geocoding, and map rendering using
 
 - **Routing** - Turn-by-turn directions with ETA and distance
 - **Travel Modes** - Driving, walking, and biking routes from the same API
+- **Fallback URLs** - Retry geocoding and autocomplete against backup services
 - **Geocoding** - Convert addresses to coordinates and vice versa
 - **Map Rendering** - MapLibre GL maps with route visualization
 - **Real-Time Tracking** - Built-in helpers for ride-sharing apps

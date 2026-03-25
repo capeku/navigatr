@@ -63,7 +63,9 @@ export interface AutocompleteResult {
 export interface NavigatrConfig {
   valhallaUrl?: string
   nominatimUrl?: string
+  nominatimFallbackUrls?: string[]
   photonUrl?: string
+  photonFallbackUrls?: string[]
 }
 
 // Map Customization Types

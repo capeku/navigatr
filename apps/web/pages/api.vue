@@ -228,7 +228,9 @@ console.<span class="text-blue-400">log</span>(<span class="text-yellow-300">`Di
 <span class="text-purple-400">const</span> nav = <span class="text-purple-400">new</span> <span class="text-cyan-400">Navigatr</span>({
   <span class="text-cyan-300">valhallaUrl</span>: <span class="text-yellow-300">'https://your-valhalla-server.com'</span>,
   <span class="text-cyan-300">nominatimUrl</span>: <span class="text-yellow-300">'https://your-nominatim-server.com'</span>,
-  <span class="text-cyan-300">photonUrl</span>: <span class="text-yellow-300">'https://your-photon-server.com'</span>
+  <span class="text-cyan-300">nominatimFallbackUrls</span>: [<span class="text-yellow-300">'https://backup-nominatim.example.com'</span>],
+  <span class="text-cyan-300">photonUrl</span>: <span class="text-yellow-300">'https://your-photon-server.com'</span>,
+  <span class="text-cyan-300">photonFallbackUrls</span>: [<span class="text-yellow-300">'https://backup-photon.example.com'</span>]
 })</code></pre>
           </div>
         </div>

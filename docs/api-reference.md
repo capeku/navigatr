@@ -26,7 +26,9 @@ const nav = new Navigatr(config?)
 interface NavigatrConfig {
   valhallaUrl?: string   // Default: 'https://valhalla1.openstreetmap.de'
   nominatimUrl?: string  // Default: 'https://nominatim.openstreetmap.org'
+  nominatimFallbackUrls?: string[]
   photonUrl?: string     // Default: 'https://photon.komoot.io'
+  photonFallbackUrls?: string[]
 }
 ```
 
