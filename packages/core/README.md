@@ -115,17 +115,38 @@ interface RouteOptions {
 }
 ```
 
-#### `geocode({ address }): Promise<GeocodeResult>`
+#### `geocode({ address, ...filters }): Promise<GeocodeResult>`
 
 Convert an address string to coordinates.
+
+Example restrictions:
+
+```ts
+await nav.geocode({
+  address: 'France',
+  countryCodes: ['fr'],
+  featureType: 'country'
+})
+```
 
 #### `reverseGeocode({ lat, lng }): Promise<GeocodeResult>`
 
 Convert coordinates to an address.
 
-#### `autocomplete({ query, limit? }): Promise<AutocompleteResult[]>`
+#### `autocomplete({ query, limit?, ...filters }): Promise<AutocompleteResult[]>`
 
 Search location suggestions for typeahead inputs.
+
+Example restrictions:
+
+```ts
+await nav.autocomplete({
+  query: 'Nairobi',
+  limit: 5,
+  language: 'en',
+  bbox: [36.6, -1.5, 37.0, -1.1]
+})
+```
 
 ## Types
 
