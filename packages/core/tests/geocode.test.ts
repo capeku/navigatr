@@ -57,6 +57,31 @@ describe('geocode', () => {
       'Nominatim geocoding failed: 500 Server Error'
     )
   })
+
+  it('forwards country and feature filters to nominatim', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        {
+          lat: '46.2276',
+          lon: '2.2137',
+          display_name: 'France'
+        }
+      ]
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await geocode('France', 'https://nominatim.test', {
+      countryCodes: ['fr'],
+      featureType: 'country',
+      extraParams: { polygon_geojson: 1 }
+    })
+
+    const requestUrl = String(fetchMock.mock.calls[0][0])
+    expect(requestUrl).toContain('countrycodes=fr')
+    expect(requestUrl).toContain('featuretype=country')
+    expect(requestUrl).toContain('polygon_geojson=1')
+  })
 })
 
 describe('reverseGeocode', () => {
