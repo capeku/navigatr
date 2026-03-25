@@ -1,0 +1,59 @@
+{
+  "name": "@navigatr/mobile",
+  "version": "1.2.0",
+  "description": "React Native SDK for maps, routing, and navigation with react-native-maps",
+  "author": "capeku",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/capeku/navigatr.git",
+    "directory": "packages/mobile"
+  },
+  "homepage": "https://github.com/capeku/navigatr#readme",
+  "bugs": {
+    "url": "https://github.com/capeku/navigatr/issues"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "react-native": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@navigatr/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-native": ">=0.72",
+    "react-native-maps": ">=1.14.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.8"
+  },
+  "keywords": [
+    "maps",
+    "react-native",
+    "react-native-maps",
+    "routing",
+    "geocoding",
+    "openstreetmap",
+    "osm",
+    "navigation",
+    "google-maps-alternative",
+    "open-source"
+  ]
+}
