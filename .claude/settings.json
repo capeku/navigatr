@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(pnpm install:*)",
-      "Bash(pnpm build:*)"
+      "Bash(pnpm build:*)",
+      "Bash(./node_modules/.bin/turbo build:*)",
+      "Read(//usr/local/bin/**)",
+      "Read(//opt/homebrew/bin/**)",
+      "Read(//Users/cristian/.nvm/versions/node/**)",
+      "Read(//Users/cristian/.volta/**)",
+      "Read(//usr/bin/**)"
     ]
   }
 }

@@ -1,4 +1,4 @@
-import type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, MapStyle, MapStylePreset, MapColors, LayerVisibility, MarkerStyle, PolylineStyle, MapTheme, AlternateRoute, TravelMode } from './types'
+import type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, MapStyle, MapStylePreset, MapColors, LayerVisibility, MarkerStyle, PolylineStyle, MapTheme, AlternateRoute, TravelMode, TransitMode, TransitLeg, StopInfo, TransitItinerary } from './types'
 import { getRoute } from './route'
 import { geocode as geocodeAddress, reverseGeocode as reverseGeocodeCoords } from './geocode'
 import { autocomplete as autocompleteSearch } from './autocomplete'
@@ -79,5 +79,7 @@ export class NavigatrCore {
   }
 }
 
-export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, MapStyle, MapStylePreset, MapColors, LayerVisibility, MarkerStyle, PolylineStyle, MapTheme, AlternateRoute, TravelMode }
+export type { LatLng, GeocodeResult, RouteResult, RouteOptions, Maneuver, NavigatrConfig, AutocompleteResult, MapStyle, MapStylePreset, MapColors, LayerVisibility, MarkerStyle, PolylineStyle, MapTheme, AlternateRoute, TravelMode, TransitMode, TransitLeg, StopInfo, TransitItinerary }
 export { MAP_STYLE_PRESETS } from './mapStyle'
+export { itineraryToGeoJSON, stopInfosToGeoJSON } from './transit'
+export type { TransitGeoJSON } from './transit'

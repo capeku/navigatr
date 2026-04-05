@@ -1,4 +1,4 @@
-import type { LatLng, Maneuver, RouteResult, AlternateRoute } from '@navigatr/core'
+import type { LatLng, Maneuver, RouteResult, AlternateRoute, TransitItinerary, StopInfo } from '@navigatr/core'
 
 export interface MapConfig {
   container: string
@@ -70,4 +70,19 @@ export interface NavigatrMap {
   drawAlternateRoutes(alternates: AlternateRoute[]): void
   switchRoute(index: number): void
   onAlternateRouteClick(callback: (index: number) => void): () => void
+
+  // Transit rendering
+  drawTransitRoute(itinerary: TransitItinerary, options?: {
+    fitBounds?: boolean
+    fitPadding?: number
+    activeLegIndex?: number
+  }): void
+  showStops(stops: StopInfo[] | GeoJSON.FeatureCollection, options?: {
+    icon?: string
+    iconSize?: number
+    color?: string
+    showLabels?: boolean
+  }): void
+  clearTransitRoute(): void
+  highlightLeg(index: number): void
 }

@@ -4,7 +4,8 @@ import bearing from '@turf/bearing'
 import distance from '@turf/distance'
 import along from '@turf/along'
 import { lineString, point } from '@turf/helpers'
-import type { LatLng, RouteResult, Maneuver, AlternateRoute } from '@navigatr/core'
+import type { LatLng, RouteResult, Maneuver, AlternateRoute, TransitItinerary, StopInfo } from '@navigatr/core'
+import { itineraryToGeoJSON, stopInfosToGeoJSON } from '@navigatr/core'
 import { injectMapLibreStyles } from './styles'
 import type {
   MapConfig,
@@ -121,6 +122,9 @@ export function createMap(config: MapConfig): NavigatrMap {
   let activeRoutePolyline: LatLng[] = []
   let alternateRoutes: AlternateRoute[] = []
   const alternateRouteClickListeners: Set<(index: number) => void> = new Set()
+
+  // Transit state
+  let transitLegCount = 0
 
   function emitEvent(event: NavigationEvent): void {
     eventListeners.forEach((cb) => cb(event))
@@ -650,6 +654,216 @@ export function createMap(config: MapConfig): NavigatrMap {
     onAlternateRouteClick(callback: (index: number) => void): () => void {
       alternateRouteClickListeners.add(callback)
       return () => alternateRouteClickListeners.delete(callback)
+    },
+
+    drawTransitRoute(itinerary: TransitItinerary, options?: {
+      fitBounds?: boolean
+      fitPadding?: number
+      activeLegIndex?: number
+    }): void {
+      const fitBounds = options?.fitBounds ?? true
+      const fitPadding = options?.fitPadding ?? 50
+      const activeLegIndex = options?.activeLegIndex ?? null
+
+      // Remove any existing transit layers/sources
+      this.clearTransitRoute()
+
+      const { legs } = itineraryToGeoJSON(itinerary)
+
+      transitLegCount = legs.features.length
+
+      for (const feature of legs.features) {
+        const props = feature.properties as {
+          index: number
+          color: string
+          width: number
+          dashArray: number[] | null
+          isTransfer: boolean
+        }
+        const index = props.index
+        const sourceId = `navigatr-transit-leg-${index}`
+        const layerId = `navigatr-transit-leg-${index}`
+
+        const opacity = activeLegIndex !== null && activeLegIndex !== index ? 0.4 : 1.0
+
+        map.addSource(sourceId, {
+          type: 'geojson',
+          data: feature as GeoJSON.Feature
+        })
+
+        const paintProps: maplibregl.LineLayerSpecification['paint'] = {
+          'line-color': props.color,
+          'line-width': props.width,
+          'line-opacity': opacity
+        }
+
+        if (props.dashArray) {
+          paintProps['line-dasharray'] = props.dashArray
+        }
+
+        map.addLayer({
+          id: layerId,
+          type: 'line',
+          source: sourceId,
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: paintProps
+        })
+      }
+
+      if (fitBounds && legs.features.length > 0) {
+        const bounds = new maplibregl.LngLatBounds()
+        for (const feature of legs.features) {
+          const geom = feature.geometry as GeoJSON.LineString
+          for (const coord of geom.coordinates) {
+            bounds.extend(coord as [number, number])
+          }
+        }
+        map.fitBounds(bounds, { padding: fitPadding, pitch: 0, bearing: 0 })
+      }
+    },
+
+    showStops(stops: StopInfo[] | GeoJSON.FeatureCollection, options?: {
+      icon?: string
+      iconSize?: number
+      color?: string
+      showLabels?: boolean
+    }): void {
+      const showLabels = options?.showLabels ?? false
+      const fallbackColor = options?.color ?? '#888888'
+      const iconSize = options?.iconSize ?? 24
+
+      // Remove existing stop layers/sources
+      const stopLayerIds = [
+        'navigatr-transit-stops-icon',
+        'navigatr-transit-stops-circle',
+        'navigatr-transit-stops-label'
+      ]
+      for (const id of stopLayerIds) {
+        if (map.getLayer(id)) map.removeLayer(id)
+      }
+      if (map.getSource('navigatr-transit-stops')) map.removeSource('navigatr-transit-stops')
+
+      // Build GeoJSON FeatureCollection
+      let stopsGeoJSON: GeoJSON.FeatureCollection
+      if (Array.isArray(stops)) {
+        stopsGeoJSON = stopInfosToGeoJSON(stops, fallbackColor) as GeoJSON.FeatureCollection
+      } else {
+        stopsGeoJSON = stops
+      }
+
+      map.addSource('navigatr-transit-stops', {
+        type: 'geojson',
+        data: stopsGeoJSON
+      })
+
+      if (options?.icon) {
+        // Render SVG icon to canvas and register as a MapLibre image
+        const svgString = options.icon
+        const imageId = 'navigatr-transit-stop-icon'
+
+        const canvas = document.createElement('canvas')
+        canvas.width = iconSize
+        canvas.height = iconSize
+        const ctx = canvas.getContext('2d')!
+
+        const img = new Image(iconSize, iconSize)
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+        const url = URL.createObjectURL(svgBlob)
+
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, iconSize, iconSize)
+          URL.revokeObjectURL(url)
+          const imageData = ctx.getImageData(0, 0, iconSize, iconSize)
+
+          if (!map.hasImage(imageId)) {
+            map.addImage(imageId, imageData)
+          }
+
+          if (!map.getLayer('navigatr-transit-stops-icon')) {
+            map.addLayer({
+              id: 'navigatr-transit-stops-icon',
+              type: 'symbol',
+              source: 'navigatr-transit-stops',
+              layout: {
+                'icon-image': imageId,
+                'icon-size': 1,
+                'icon-allow-overlap': true
+              }
+            })
+          }
+        }
+        img.src = url
+      } else {
+        map.addLayer({
+          id: 'navigatr-transit-stops-circle',
+          type: 'circle',
+          source: 'navigatr-transit-stops',
+          paint: {
+            'circle-radius': 5,
+            'circle-color': '#ffffff',
+            'circle-stroke-width': 2,
+            'circle-stroke-color': ['coalesce', ['get', 'color'], fallbackColor]
+          }
+        })
+      }
+
+      if (showLabels) {
+        map.addLayer({
+          id: 'navigatr-transit-stops-label',
+          type: 'symbol',
+          source: 'navigatr-transit-stops',
+          layout: {
+            'text-field': ['get', 'name'],
+            'text-size': 12,
+            'text-offset': [0, -1.5],
+            'text-anchor': 'bottom',
+            'text-allow-overlap': false
+          },
+          paint: {
+            'text-color': '#333333',
+            'text-halo-color': '#ffffff',
+            'text-halo-width': 1
+          }
+        })
+      }
+    },
+
+    clearTransitRoute(): void {
+      // Remove all layers and sources prefixed with navigatr-transit-
+      const style = map.getStyle()
+      if (!style) return
+
+      const transitLayerIds = style.layers
+        .map((l) => l.id)
+        .filter((id) => id.startsWith('navigatr-transit-'))
+
+      for (const id of transitLayerIds) {
+        if (map.getLayer(id)) map.removeLayer(id)
+      }
+
+      const sourceIds: string[] = []
+      for (let i = 0; i < transitLegCount; i++) {
+        sourceIds.push(`navigatr-transit-leg-${i}`)
+      }
+      sourceIds.push('navigatr-transit-stops')
+
+      for (const id of sourceIds) {
+        if (map.getSource(id)) map.removeSource(id)
+      }
+
+      transitLegCount = 0
+    },
+
+    highlightLeg(index: number): void {
+      for (let i = 0; i < transitLegCount; i++) {
+        const layerId = `navigatr-transit-leg-${i}`
+        if (map.getLayer(layerId)) {
+          map.setPaintProperty(layerId, 'line-opacity', i === index ? 1.0 : 0.4)
+        }
+      }
     }
   }
 }

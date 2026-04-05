@@ -123,3 +123,53 @@ export interface MapStylePreset {
   name: string
   style: MapStyle
 }
+
+// Transit-specific types
+export type TransitMode = 'WALK' | 'BUS' | 'RAIL' | 'FERRY' | 'TRAM'
+
+export interface StopInfo {
+  stopId: string
+  name: string
+  lat: number
+  lng: number
+  arrivalTime?: string
+  routes?: string[]
+}
+
+export interface TransitLeg {
+  mode: TransitMode
+  from: {
+    name: string
+    lat: number
+    lng: number
+    stopId?: string
+  }
+  to: {
+    name: string
+    lat: number
+    lng: number
+    stopId?: string
+  }
+  departureTime: string
+  arrivalTime: string
+  duration: number              // seconds
+  distance: number              // meters
+  routeId?: string
+  routeName?: string
+  routeColor?: string           // hex, e.g. "#FF5722"
+  numStops?: number
+  intermediateStops?: StopInfo[]
+  isTransfer?: boolean
+  geometry: {
+    type: 'LineString'
+    coordinates: [number, number][]  // [lng, lat] pairs
+  }
+}
+
+export interface TransitItinerary {
+  duration: number
+  durationText: string
+  transfers: number
+  walkDistance: number
+  legs: TransitLeg[]
+}
