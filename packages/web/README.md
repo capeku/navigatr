@@ -51,6 +51,19 @@ const bikeRoute = await nav.route({
 })
 ```
 
+## Fallback URLs
+
+```ts
+const nav = new Navigatr({
+  nominatimUrl: 'https://primary-nominatim.example.com',
+  nominatimFallbackUrls: ['https://backup-nominatim.example.com'],
+  photonUrl: 'https://primary-photon.example.com',
+  photonFallbackUrls: ['https://backup-photon.example.com']
+})
+```
+
+Geocoding, reverse geocoding, and autocomplete will try the primary service first, then each fallback in order.
+
 ## Ride-Sharing Apps
 
 Use `RideSession` for complete ride lifecycle management:
