@@ -1,184 +1,206 @@
-import type { LatLng, RouteResult, RouteOptions, Maneuver, AlternateRoute, TravelMode } from './types'
-import { decodePolyline } from './utils/polyline'
-import { formatDuration, formatDistance } from './utils/format'
+import type {
+  AlternateRoute,
+  Maneuver,
+  MultiRouteOptions,
+  RouteOptions,
+  RouteResult,
+  TravelMode,
+} from "./types";
+import { formatDistance, formatDuration } from "./utils/format";
+import { decodePolyline } from "./utils/polyline";
 
-const DEFAULT_VALHALLA_URL = 'https://valhalla1.openstreetmap.de'
-const MODE_TO_COSTING: Record<TravelMode, 'auto' | 'pedestrian' | 'bicycle'> = {
-  drive: 'auto',
-  walk: 'pedestrian',
-  bike: 'bicycle'
-}
+const DEFAULT_VALHALLA_URL = "https://valhalla1.openstreetmap.de";
+const MODE_TO_COSTING: Record<TravelMode, "auto" | "pedestrian" | "bicycle"> = {
+  drive: "auto",
+  walk: "pedestrian",
+  bike: "bicycle",
+};
 
 interface ValhallaLocation {
-  lon: number
-  lat: number
-  type: 'break'
+  lon: number;
+  lat: number;
+  type: "break";
 }
 
 interface ValhallaManeuver {
-  instruction: string
-  type: number
-  length: number
-  time: number
-  begin_shape_index: number
+  instruction: string;
+  type: number;
+  length: number;
+  time: number;
+  begin_shape_index: number;
 }
 
 interface ValhallaRequest {
-  locations: ValhallaLocation[]
-  costing: string
-  costing_options?: Record<string, {
-      use_traffic?: number
-      shortest?: boolean
-    }>
+  locations: ValhallaLocation[];
+  costing: string;
+  costing_options?: Record<
+    string,
+    {
+      use_traffic?: number;
+      shortest?: boolean;
+    }
+  >;
   directions_options: {
-    units: string
-  }
-  alternates?: number
+    units: string;
+  };
+  alternates?: number;
 }
 
 interface ValhallaTrip {
   legs: Array<{
-    shape: string
-    maneuvers: ValhallaManeuver[]
-  }>
+    shape: string;
+    maneuvers: ValhallaManeuver[];
+  }>;
   summary: {
-    time: number
-    length: number
-  }
+    time: number;
+    length: number;
+  };
 }
 
 interface ValhallaResponse {
-  trip: ValhallaTrip
+  trip: ValhallaTrip;
   alternates?: Array<{
-    trip: ValhallaTrip
-  }>
+    trip: ValhallaTrip;
+  }>;
 }
 
 const MANEUVER_TYPES: Record<number, string> = {
-  0: 'none',
-  1: 'start',
-  2: 'start_right',
-  3: 'start_left',
-  4: 'destination',
-  5: 'destination_right',
-  6: 'destination_left',
-  7: 'becomes',
-  8: 'continue',
-  9: 'slight_right',
-  10: 'right',
-  11: 'sharp_right',
-  12: 'u_turn_right',
-  13: 'u_turn_left',
-  14: 'sharp_left',
-  15: 'left',
-  16: 'slight_left',
-  17: 'ramp_straight',
-  18: 'ramp_right',
-  19: 'ramp_left',
-  20: 'exit_right',
-  21: 'exit_left',
-  22: 'stay_straight',
-  23: 'stay_right',
-  24: 'stay_left',
-  25: 'merge',
-  26: 'roundabout_enter',
-  27: 'roundabout_exit',
-  28: 'ferry_enter',
-  29: 'ferry_exit'
-}
+  0: "none",
+  1: "start",
+  2: "start_right",
+  3: "start_left",
+  4: "destination",
+  5: "destination_right",
+  6: "destination_left",
+  7: "becomes",
+  8: "continue",
+  9: "slight_right",
+  10: "right",
+  11: "sharp_right",
+  12: "u_turn_right",
+  13: "u_turn_left",
+  14: "sharp_left",
+  15: "left",
+  16: "slight_left",
+  17: "ramp_straight",
+  18: "ramp_right",
+  19: "ramp_left",
+  20: "exit_right",
+  21: "exit_left",
+  22: "stay_straight",
+  23: "stay_right",
+  24: "stay_left",
+  25: "merge",
+  26: "roundabout_enter",
+  27: "roundabout_exit",
+  28: "ferry_enter",
+  29: "ferry_exit",
+};
 
 export async function getRoute(
   options: RouteOptions,
-  valhallaUrl: string = DEFAULT_VALHALLA_URL
+  valhallaUrl: string = DEFAULT_VALHALLA_URL,
+): Promise<RouteResult> {
+  return await getMultiRoute(
+    { ...options, routes: [options.origin, options.destination] },
+    valhallaUrl,
+  );
+}
+
+export async function getMultiRoute(
+  options: MultiRouteOptions,
+  valhallaUrl: string = DEFAULT_VALHALLA_URL,
 ): Promise<RouteResult> {
   const {
-    origin,
-    destination,
-    mode = 'drive',
+    routes,
+    mode = "drive",
     maneuvers: includeManeuvers,
     traffic,
-    shortest
-  } = options
-  const costing = MODE_TO_COSTING[mode]
+    shortest,
+  } = options;
+  const costing = MODE_TO_COSTING[mode];
 
   const requestBody: ValhallaRequest = {
-    locations: [
-      { lon: origin.lng, lat: origin.lat, type: 'break' },
-      { lon: destination.lng, lat: destination.lat, type: 'break' }
-    ],
+    locations: routes.map((route) => ({
+      lon: route.lng,
+      lat: route.lat,
+      type: "break",
+    })),
     costing,
-    directions_options: { units: 'km' },
-    alternates: 3
-  }
+    directions_options: { units: "km" },
+    alternates: 3,
+  };
 
   if (traffic || shortest) {
     requestBody.costing_options = {
       [costing]: {
-        ...(traffic && mode === 'drive' && { use_traffic: 1 }),
-        ...(shortest && { shortest: true })
-      }
-    }
+        ...(traffic && mode === "drive" && { use_traffic: 1 }),
+        ...(shortest && { shortest: true }),
+      },
+    };
   }
 
   const response = await fetch(`${valhallaUrl}/route`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json'
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify(requestBody)
-  })
+    body: JSON.stringify(requestBody),
+  });
 
   if (!response.ok) {
-    const errorText = await response.text().catch(() => 'Unknown error')
+    const errorText = await response.text().catch(() => "Unknown error");
     throw new Error(
-      `Valhalla routing failed: ${response.status} ${response.statusText} - ${errorText}`
-    )
+      `Valhalla routing failed: ${response.status} ${response.statusText} - ${errorText}`,
+    );
   }
 
-  const data: ValhallaResponse = await response.json()
+  const data: ValhallaResponse = await response.json();
 
-  const encodedPolyline = data.trip.legs[0].shape
-  const polyline = decodePolyline(encodedPolyline)
+  const encodedPolyline = data.trip.legs[0].shape;
+  const polyline = decodePolyline(encodedPolyline);
 
-  const durationSeconds = data.trip.summary.time
-  const distanceMeters = data.trip.summary.length * 1000
+  const durationSeconds = data.trip.summary.time;
+  const distanceMeters = data.trip.summary.length * 1000;
 
   const result: RouteResult = {
     durationSeconds,
     durationText: formatDuration(durationSeconds),
     distanceMeters,
     distanceText: formatDistance(distanceMeters),
-    polyline
-  }
+    polyline,
+  };
 
   if (includeManeuvers && data.trip.legs[0].maneuvers) {
-    result.maneuvers = data.trip.legs[0].maneuvers.map((m): Maneuver => ({
-      instruction: m.instruction,
-      type: MANEUVER_TYPES[m.type] || 'unknown',
-      distanceMeters: m.length * 1000,
-      distanceText: formatDistance(m.length * 1000),
-      durationSeconds: m.time,
-      durationText: formatDuration(m.time),
-      startPoint: polyline[m.begin_shape_index] || polyline[0]
-    }))
+    result.maneuvers = data.trip.legs[0].maneuvers.map(
+      (m): Maneuver => ({
+        instruction: m.instruction,
+        type: MANEUVER_TYPES[m.type] || "unknown",
+        distanceMeters: m.length * 1000,
+        distanceText: formatDistance(m.length * 1000),
+        durationSeconds: m.time,
+        durationText: formatDuration(m.time),
+        startPoint: polyline[m.begin_shape_index] || polyline[0],
+      }),
+    );
   }
 
   // Parse alternate routes
   if (data.alternates && data.alternates.length > 0) {
     result.alternates = data.alternates.map((alt): AlternateRoute => {
-      const altPolyline = decodePolyline(alt.trip.legs[0].shape)
-      const altDuration = alt.trip.summary.time
-      const altDistance = alt.trip.summary.length * 1000
+      const altPolyline = decodePolyline(alt.trip.legs[0].shape);
+      const altDuration = alt.trip.summary.time;
+      const altDistance = alt.trip.summary.length * 1000;
 
       return {
         durationSeconds: altDuration,
         durationText: formatDuration(altDuration),
         distanceMeters: altDistance,
         distanceText: formatDistance(altDistance),
-        polyline: altPolyline
-      }
-    })
+        polyline: altPolyline,
+      };
+    });
   }
 
-  return result
+  return result;
 }
