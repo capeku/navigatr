@@ -1,175 +1,183 @@
 export interface LatLng {
-  lat: number
-  lng: number
+  lat: number;
+  lng: number;
 }
 
 export interface GeocodeResult {
-  lat: number
-  lng: number
-  displayName: string
+  lat: number;
+  lng: number;
+  displayName: string;
 }
 
 export interface Maneuver {
-  instruction: string
-  type: string
-  distanceMeters: number
-  distanceText: string
-  durationSeconds: number
-  durationText: string
-  startPoint: LatLng
+  instruction: string;
+  type: string;
+  distanceMeters: number;
+  distanceText: string;
+  durationSeconds: number;
+  durationText: string;
+  startPoint: LatLng;
 }
 
-export type TravelMode = 'drive' | 'walk' | 'bike'
+export type TravelMode = "drive" | "walk" | "bike";
 
 export interface RouteOptions {
-  origin: LatLng
-  destination: LatLng
-  mode?: TravelMode
-  maneuvers?: boolean
-  traffic?: boolean
-  shortest?: boolean
+  origin: LatLng;
+  destination: LatLng;
+  mode?: TravelMode;
+  maneuvers?: boolean;
+  traffic?: boolean;
+  shortest?: boolean;
+}
+
+export interface MultiRouteOptions {
+  routes: LatLng[];
+  mode?: TravelMode;
+  maneuvers?: boolean;
+  traffic?: boolean;
+  shortest?: boolean;
 }
 
 export interface AlternateRoute {
-  durationSeconds: number
-  durationText: string
-  distanceMeters: number
-  distanceText: string
-  polyline: LatLng[]
+  durationSeconds: number;
+  durationText: string;
+  distanceMeters: number;
+  distanceText: string;
+  polyline: LatLng[];
 }
 
 export interface RouteResult {
-  durationSeconds: number
-  durationText: string
-  distanceMeters: number
-  distanceText: string
-  polyline: LatLng[]
-  maneuvers?: Maneuver[]
-  alternates?: AlternateRoute[]
+  durationSeconds: number;
+  durationText: string;
+  distanceMeters: number;
+  distanceText: string;
+  polyline: LatLng[];
+  maneuvers?: Maneuver[];
+  alternates?: AlternateRoute[];
 }
 
 export interface AutocompleteResult {
-  lat: number
-  lng: number
-  displayName: string
-  name: string
-  city?: string
-  state?: string
-  country?: string
-  street?: string
-  postcode?: string
+  lat: number;
+  lng: number;
+  displayName: string;
+  name: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  street?: string;
+  postcode?: string;
 }
 
 export interface NavigatrConfig {
-  valhallaUrl?: string
-  nominatimUrl?: string
-  photonUrl?: string
+  valhallaUrl?: string;
+  nominatimUrl?: string;
+  photonUrl?: string;
 }
 
 // Map Customization Types
-export type MapTheme = 'light' | 'dark' | 'satellite' | 'terrain' | 'custom'
+export type MapTheme = "light" | "dark" | "satellite" | "terrain" | "custom";
 
 export interface MapColors {
-  primary?: string
-  secondary?: string
-  background?: string
-  roads?: string
-  water?: string
-  parks?: string
-  buildings?: string
-  labels?: string
+  primary?: string;
+  secondary?: string;
+  background?: string;
+  roads?: string;
+  water?: string;
+  parks?: string;
+  buildings?: string;
+  labels?: string;
 }
 
 export interface LayerVisibility {
-  roads?: boolean
-  labels?: boolean
-  buildings?: boolean
-  water?: boolean
-  parks?: boolean
-  terrain?: boolean
-  traffic?: boolean
-  transit?: boolean
+  roads?: boolean;
+  labels?: boolean;
+  buildings?: boolean;
+  water?: boolean;
+  parks?: boolean;
+  terrain?: boolean;
+  traffic?: boolean;
+  transit?: boolean;
 }
 
 export interface MarkerStyle {
-  iconUrl?: string
-  iconSize?: [number, number]
-  iconAnchor?: [number, number]
-  color?: string
-  scale?: number
+  iconUrl?: string;
+  iconSize?: [number, number];
+  iconAnchor?: [number, number];
+  color?: string;
+  scale?: number;
 }
 
 export interface PolylineStyle {
-  color?: string
-  weight?: number
-  opacity?: number
-  dashArray?: string
-  lineCap?: 'butt' | 'round' | 'square'
-  lineJoin?: 'miter' | 'round' | 'bevel'
+  color?: string;
+  weight?: number;
+  opacity?: number;
+  dashArray?: string;
+  lineCap?: "butt" | "round" | "square";
+  lineJoin?: "miter" | "round" | "bevel";
 }
 
 export interface MapStyle {
-  id?: string
-  name?: string
-  theme?: MapTheme
-  colors?: MapColors
-  layers?: LayerVisibility
-  markers?: MarkerStyle
-  polyline?: PolylineStyle
+  id?: string;
+  name?: string;
+  theme?: MapTheme;
+  colors?: MapColors;
+  layers?: LayerVisibility;
+  markers?: MarkerStyle;
+  polyline?: PolylineStyle;
 }
 
 export interface MapStylePreset {
-  id: string
-  name: string
-  style: MapStyle
+  id: string;
+  name: string;
+  style: MapStyle;
 }
 
 // Transit-specific types
-export type TransitMode = 'WALK' | 'BUS' | 'RAIL' | 'FERRY' | 'TRAM'
+export type TransitMode = "WALK" | "BUS" | "RAIL" | "FERRY" | "TRAM";
 
 export interface StopInfo {
-  stopId: string
-  name: string
-  lat: number
-  lng: number
-  arrivalTime?: string
-  routes?: string[]
+  stopId: string;
+  name: string;
+  lat: number;
+  lng: number;
+  arrivalTime?: string;
+  routes?: string[];
 }
 
 export interface TransitLeg {
-  mode: TransitMode
+  mode: TransitMode;
   from: {
-    name: string
-    lat: number
-    lng: number
-    stopId?: string
-  }
+    name: string;
+    lat: number;
+    lng: number;
+    stopId?: string;
+  };
   to: {
-    name: string
-    lat: number
-    lng: number
-    stopId?: string
-  }
-  departureTime: string
-  arrivalTime: string
-  duration: number              // seconds
-  distance: number              // meters
-  routeId?: string
-  routeName?: string
-  routeColor?: string           // hex, e.g. "#FF5722"
-  numStops?: number
-  intermediateStops?: StopInfo[]
-  isTransfer?: boolean
+    name: string;
+    lat: number;
+    lng: number;
+    stopId?: string;
+  };
+  departureTime: string;
+  arrivalTime: string;
+  duration: number; // seconds
+  distance: number; // meters
+  routeId?: string;
+  routeName?: string;
+  routeColor?: string; // hex, e.g. "#FF5722"
+  numStops?: number;
+  intermediateStops?: StopInfo[];
+  isTransfer?: boolean;
   geometry: {
-    type: 'LineString'
-    coordinates: [number, number][]  // [lng, lat] pairs
-  }
+    type: "LineString";
+    coordinates: [number, number][]; // [lng, lat] pairs
+  };
 }
 
 export interface TransitItinerary {
-  duration: number
-  durationText: string
-  transfers: number
-  walkDistance: number
-  legs: TransitLeg[]
+  duration: number;
+  durationText: string;
+  transfers: number;
+  walkDistance: number;
+  legs: TransitLeg[];
 }
